@@ -63,6 +63,7 @@ def dict_from_jags(src):
         dst[k] = v
     return dst
 
+
 def check_locale_compatibility():
     """Checks that current locale is compatible with JAGS."""
     import locale
@@ -74,6 +75,7 @@ def check_locale_compatibility():
         > import locale
         > locale.setlocale(locale.LC_ALL, 'C')"""
         raise ValueError(textwrap.dedent(msg))
+
 
 @contextlib.contextmanager
 def model_path(file=None, code=None, encoding='utf-8'):
@@ -139,6 +141,10 @@ class MultiConsole:
         for c in self.consoles:
             c.setMonitor(name, thin, monitor_type)
 
+    def setMonitors(self, names, thin, monitor_type):
+        for name in names:
+            self.setMonitors(name, thin, monitor_type)
+
     def clearMonitor(self, name, monitor_type):
         for c in self.consoles:
             c.clearMonitor(name, monitor_type)
@@ -147,6 +153,9 @@ class MultiConsole:
         ds = [c.dumpMonitors(monitor_type, flat) for c in self.consoles]
         return {k: np.concatenate([d[k] for d in ds], axis=-1)
                 for k in set(k for d in ds for k in d.keys())}
+
+    def getMonitoredValuesFlat(self, monitor_type):
+        return self.dumpMonitors(monitor_type=monitor_type, flat=True)
 
     def initialize(self):
         for c in self.consoles:
@@ -292,7 +301,6 @@ class Model:
             raise ValueError(
                 'Unused data for variables: {}'.format(','.join(unused)))
         self.console.compile(data, self.chains, generate_data)
-
 
     def _init_parameters(self, init):
         """Set parameters and configure random number generators."""

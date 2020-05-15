@@ -22,6 +22,7 @@ from .console import Console
 logger = logging.getLogger('pyjags')
 modules_dir = None
 
+
 def version():
     """JAGS version as a tuple of ints.
 
@@ -33,7 +34,6 @@ def version():
 
 
 if sys.platform.startswith('darwin'):
-
     def list_shared_objects():
         """Return paths of all currently loaded shared objects."""
 
@@ -56,7 +56,6 @@ if sys.platform.startswith('darwin'):
         return list(map(getattr(os, 'fsdecode', lambda x: x), libraries))
 
 elif sys.platform.startswith('linux'):
-
     def list_shared_objects():
         """Return paths of all currently loaded shared objects."""
 
@@ -93,7 +92,6 @@ elif sys.platform.startswith('linux'):
         return list(map(getattr(os, 'fsdecode', lambda x: x), libraries))
 
 else:
-
     def list_shared_objects():
         """Return paths of all currently loaded shared objects."""
         return []
