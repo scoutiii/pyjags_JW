@@ -1,3 +1,4 @@
+import numpy as np
 import typing as tp
 
 from .modules import load_module
@@ -54,3 +55,11 @@ def dic_samples(model: Model,
            "type": type}
 
     return ans
+
+
+def print_dic(x: tp.Dict[str, tp.Any], digits: int = 2):
+    deviance = np.sum(x['deviance'])
+    print("Mean deviance: {:.{}f}".format(deviance, digits))
+    psum = np.sum(x['penalty'])
+    print("penalty: {:.{}f}".format(psum, digits))
+    print("Penalized deviance: {:.{}f}".format(deviance + psum, digits))
