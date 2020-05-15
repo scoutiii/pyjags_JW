@@ -31,14 +31,15 @@ def dic_samples(model: Model,
     model.update(iterations=n_iter)
 
     # this returns a dictionary
-    dev = model.console.getMonitoredValuesFlat(monitor_type="mean")
+    # dev = model.console.getMonitoredValuesFlat(monitor_type="mean")
+    dev = model.console.dumpMonitors(type="mean", flat=True)
 
     # for (i in seq(along=dev)) {
     #     class(dev[[i]]) < - "mcarray"
     # }
 
-    model.console.clearMonitor(name="deviance", monitor_type="mean")
-    model.console.clearMonitor(name=pdtype, monitor_type="mean")
+    model.console.clearMonitor(name="deviance", type="mean")
+    model.console.clearMonitor(name=pdtype, type="mean")
 
     # how do I check the status?
     # if (status[1]) {

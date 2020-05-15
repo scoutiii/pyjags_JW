@@ -137,25 +137,25 @@ class MultiConsole:
         console, chain = self.chains[chain]
         console.setParameters(data, chain)
 
-    def setMonitor(self, name, thin, monitor_type):
+    def setMonitor(self, name, thin, type):
         for c in self.consoles:
-            c.setMonitor(name, thin, monitor_type)
+            c.setMonitor(name, thin, type)
 
-    def setMonitors(self, names, thin, monitor_type):
+    def setMonitors(self, names, thin, type):
         for name in names:
-            self.setMonitors(name, thin, monitor_type)
+            self.setMonitors(name, thin, type)
 
-    def clearMonitor(self, name, monitor_type):
+    def clearMonitor(self, name, type):
         for c in self.consoles:
-            c.clearMonitor(name, monitor_type)
+            c.clearMonitor(name, type)
 
-    def dumpMonitors(self, monitor_type, flat):
-        ds = [c.dumpMonitors(monitor_type, flat) for c in self.consoles]
+    def dumpMonitors(self, type, flat):
+        ds = [c.dumpMonitors(type, flat) for c in self.consoles]
         return {k: np.concatenate([d[k] for d in ds], axis=-1)
                 for k in set(k for d in ds for k in d.keys())}
 
-    def getMonitoredValuesFlat(self, monitor_type):
-        return self.dumpMonitors(monitor_type=monitor_type, flat=True)
+    def getMonitoredValuesFlat(self, type):
+        return self.dumpMonitors(type=type, flat=True)
 
     def initialize(self):
         for c in self.consoles:

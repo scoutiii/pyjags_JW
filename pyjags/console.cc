@@ -196,6 +196,13 @@ public:
     invoke([&] { return console_.setMonitor(name, Range(), thin, type); });
   }
 
+  void setMonitors(const std::vector<std::string> names, unsigned int thin,
+                   const std::string &type) {
+    for(auto&& name: names) {
+        invoke([&] { return console_.setMonitor(name, Range(), thin, type); });
+    }
+  }
+
   void clearMonitor(const std::string &name, const std::string &type) {
     invoke([&] { return console_.clearMonitor(name, Range(), type); });
   }
@@ -392,6 +399,9 @@ PYBIND11_MODULE(console, module) {
       .def("setMonitor", &JagsConsole::setMonitor, py::arg("name"),
            py::arg("thin"), py::arg("type"),
            "Sets a monitor for the given node array.")
+      .def("setMonitors", &JagsConsole::setMonitors, py::arg("names"),
+           py::arg("thin"), py::arg("type"),
+           "Sets multiple monitors for the given node array.")
       .def("clearMonitor", &JagsConsole::clearMonitor, py::arg("name"),
            py::arg("type"), "Clears a monitor.")
       .def("dumpState", &JagsConsole::dumpState, py::arg("type"),
