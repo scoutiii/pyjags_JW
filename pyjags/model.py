@@ -143,7 +143,7 @@ class MultiConsole:
 
     def setMonitors(self, names, thin, type):
         for name in names:
-            self.setMonitors(name, thin, type)
+            self.setMonitor(name, thin, type)
 
     def clearMonitor(self, name, type):
         for c in self.consoles:
@@ -153,9 +153,6 @@ class MultiConsole:
         ds = [c.dumpMonitors(type, flat) for c in self.consoles]
         return {k: np.concatenate([d[k] for d in ds], axis=-1)
                 for k in set(k for d in ds for k in d.keys())}
-
-    def getMonitoredValuesFlat(self, type):
-        return self.dumpMonitors(type=type, flat=True)
 
     def initialize(self):
         for c in self.consoles:

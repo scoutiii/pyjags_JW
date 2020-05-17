@@ -13,6 +13,7 @@ from ._version import get_versions
 __version__ = get_versions()['version']
 del get_versions
 
+from .arviz import convert_pyjags_samples_dict_to_arviz_inference_data
+from .dic import dic_samples
 from .model import *
 from .modules import *
-

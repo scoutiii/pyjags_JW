@@ -1,16 +1,90 @@
+import numbers
 import numpy as np
-import typing as tp
 
 from .modules import load_module
 from .model import Model
 
 
-def dic_samples(model: Model,
-                n_iter: int,
-                thin: int = 1,
-                type: str="pD",
+class DiffDIC:
+    def __init__(self, delta):
+        self._delta = delta
+
+        if isinstance(self.delta, np.ndarray):
+            self._n = len(self.delta)
+        elif isinstance(self.delta, numbers.Number):
+            self._n = 1
+        else:
+            raise TypeError(f'delta must either be a numpy array or a number '
+                            f'but is of type {type(delta)}')
+
+    @property
+    def delta(self):
+        return self._delta
+
+    def __str__(self):
+
+        result = f"Difference: {np.sum(self.delta)}\n"
+        result += f"Sample standard error: " \
+                  f"{np.sqrt(self._n) * np.std(self.delta)}"
+        return result
+
+    def __repr__(self):
+        return self.__str__()
+
+
+class DIC:
+    def __init__(self, deviance, penalty, type):
+        self._deviance = deviance
+        self._penalty = penalty
+        self._type = type
+
+    @property
+    def deviance(self):
+        return self._deviance
+
+    @property
+    def penalty(self):
+        return self._penalty
+
+    @property
+    def type(self):
+        return self._type
+
+    def construct_report(self, digits = 2) -> str:
+        result = ""
+        deviance = np.sum(self.deviance)
+        psum = np.sum(self.penalty)
+        result += "Mean deviance: {:.{}f}\n".format(deviance, digits)
+        result += "penalty: {:.{}f}\n".format(psum, digits)
+        result += "Penalized deviance: {:.{}f}".format(deviance + psum, digits)
+
+        return result
+
+    def __sub__(self, other):
+        if not isinstance(other, DIC):
+            raise TypeError('The second object must be of type DIC.')
+
+        if self.type != other.type:
+            raise ValueError("incompatible dic object: different penalty types")
+
+        delta = self.deviance + self.penalty - \
+                other.deviance - other.penalty
+
+        return DiffDIC(delta)
+
+    def __str__(self):
+        return self.construct_report()
+
+    def __repr__(self):
+        return self.__str__()
+
+
+def dic_samples(model,
+                n_iter,
+                thin = 1,
+                type = "pD",
                 *args,
-                **kwargs) -> tp.Dict:
+                **kwargs):
     if not isinstance(model, Model):
         raise ValueError("Invalid JAGS model")
 
@@ -32,34 +106,11 @@ def dic_samples(model: Model,
     model.update(iterations=n_iter)
 
     # this returns a dictionary
-    # dev = model.console.getMonitoredValuesFlat(monitor_type="mean")
     dev = model.console.dumpMonitors(type="mean", flat=True)
-
-    # for (i in seq(along=dev)) {
-    #     class(dev[[i]]) < - "mcarray"
-    # }
 
     model.console.clearMonitor(name="deviance", type="mean")
     model.console.clearMonitor(name=pdtype, type="mean")
 
-    # how do I check the status?
-    # if (status[1]) {
-    #     .Call("clear_monitor", model$ptr(), "deviance", NULL, NULL, "mean", PACKAGE = "rjags")
-    # }
-    # if (status[2]) {
-    #     .Call("clear_monitor", model$ptr(), pdtype, NULL, NULL, "mean", PACKAGE = "rjags")
-    # }
-
-    ans = {"deviance": dev['deviance'],
-           "penalty": dev[type],
-           "type": type}
-
-    return ans
-
-
-def print_dic(x: tp.Dict[str, tp.Any], digits: int = 2):
-    deviance = np.sum(x['deviance'])
-    print("Mean deviance: {:.{}f}".format(deviance, digits))
-    psum = np.sum(x['penalty'])
-    print("penalty: {:.{}f}".format(psum, digits))
-    print("Penalized deviance: {:.{}f}".format(deviance + psum, digits))
+    return DIC(deviance=dev['deviance'],
+               penalty=dev[type],
+               type=type)

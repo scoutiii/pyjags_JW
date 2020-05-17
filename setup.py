@@ -62,7 +62,7 @@ def add_numpy(ext):
 
 def add_pybind11(ext):
     ext.include_dirs.append('pybind11/include')
-    ext.extra_compile_args.append('-std=c++11')
+    ext.extra_compile_args.append('-std=c++17')
 
 
 if __name__ == '__main__':
@@ -98,5 +98,5 @@ if __name__ == '__main__':
           ],
           packages=['pyjags'],
           ext_modules=[ext],
-          install_requires=['numpy'],
+          install_requires=['numpy', 'arviz'],
           test_suite='test')
