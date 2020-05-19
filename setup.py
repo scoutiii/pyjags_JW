@@ -1,6 +1,7 @@
 # encoding: utf-8
 #
 # Copyright (C) 2015-2016 Tomasz Miasko
+#               2020 Michael Nowotny
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -78,9 +79,9 @@ if __name__ == '__main__':
           cmdclass=versioneer.get_cmdclass(),
           description='Python interface to JAGS library for Bayesian data analysis.',
           long_description=content('README.rst'),
-          author=u'Tomasz Miąsko',
-          author_email='tomasz.miasko@gmail.com',
-          url='https://github.com/tmiasko/pyjags',
+          author=u'Tomasz Miąsko, Michael Nowotny',
+          author_email='tomasz.miasko@gmail.com, nowotnym@gmail.com',
+          url='https://github.com/michaelnowotny/pyjags',
           license='GPLv2',
           classifiers=[
               'Development Status :: 4 - Beta',
@@ -92,11 +93,16 @@ if __name__ == '__main__':
               'Programming Language :: Python :: 3',
               'Programming Language :: Python :: 3.4',
               'Programming Language :: Python :: 3.5',
+              'Programming Language :: Python :: 3.6',
+              'Programming Language :: Python :: 3.7',
+              'Programming Language :: Python :: 3.8',
               'Programming Language :: Python',
               'Topic :: Scientific/Engineering :: Information Analysis',
               'Topic :: Scientific/Engineering',
           ],
           packages=['pyjags'],
           ext_modules=[ext],
-          install_requires=['numpy', 'arviz'],
+          install_requires=['arviz',
+                            'deepdish',
+                            'numpy'],
           test_suite='test')
