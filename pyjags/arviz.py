@@ -17,10 +17,23 @@ import typing as tp
 
 def convert_pyjags_samples_dict_to_arviz_inference_data(
         samples: tp.Dict[str, np.ndarray]) -> az.InferenceData:
+    """
+    This function takes a python dictionary of samples that has been generated
+    by sample method of a model instance and returns an Arviz inference data
+    object.
+    Parameters
+    ----------
+    samples: a dictionary mapping variable names to Numpy arrays with shape
+             (parameter_dimension, chain_length, number_of_chains)
+
+    Returns
+    -------
+    An Arviz inference data object
+    """
     # pyjags returns a dictionary of numpy arrays with shape
-    #         (parameter dimension, chain length, number of chains)
+    #         (parameter_dimension, chain_length, number_of_chains)
     # but arviz expects samples with shape
-    #         (number of chains, chain length, parameter dimension)
+    #         (number_of_chains, chain_length, parameter_dimension)
 
     parameter_name_to_samples_map = {}
 
