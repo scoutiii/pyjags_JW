@@ -12,11 +12,21 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-import sys
-
+import io
+import os
 from setuptools import dist, setup, Extension
 import subprocess
+import sys
 import versioneer
+
+
+here = os.path.abspath(os.path.dirname(__file__))
+DESCRIPTION = 'PyJAGS: The Python Interface to JAGS'
+try:
+    with io.open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
+        long_description = '\n' + f.read()
+except FileNotFoundError:
+    long_description = DESCRIPTION
 
 
 def content(path):
@@ -78,7 +88,8 @@ if __name__ == '__main__':
           version=versioneer.get_version(),
           cmdclass=versioneer.get_cmdclass(),
           description='Python interface to JAGS library for Bayesian data analysis.',
-          long_description=content('README.md'),
+          long_description=long_description,
+          long_description_content_type='text/markdown',
           author=u'Tomasz Miąsko, Michael Nowotny',
           author_email='tomasz.miasko@gmail.com, nowotnym@gmail.com',
           url='https://github.com/michaelnowotny/pyjags',
