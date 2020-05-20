@@ -15,25 +15,83 @@ import numpy as np
 import typing as tp
 
 
+def get_chain_length(samples: tp.Dict[str, np.ndarray]) -> int:
+    """
+    This function determines the length of the chains in the samples dictionary
+
+    Parameters
+    ----------
+    samples: a dictionary mapping variable names to Numpy arrays with shape
+             (parameter_dimension, chain_length, number_of_chains)
+
+    Returns
+    -------
+    the chain length
+
+    """
+    chain_lengths = set(value.shape[1] for key, value in samples.items())
+
+    if samples is None or len(samples) == 0:
+        raise ValueError('The samples object must not be empty')
+
+    if len(chain_lengths) > 1:
+        raise ValueError(
+            'The chain lengths are not consistent across variables.')
+
+    return next(iter(chain_lengths))
+
+
 def discard_burn_in_samples(
         samples: tp.Dict[str, np.ndarray],
         burn_in: int) -> tp.Dict[str, np.ndarray]:
+    """
+    This function discards a given number of samples from the beginning of each
+    chain for each variable and returns the remaining samples.
+
+    Parameters
+    ----------
+    samples: a dictionary mapping variable names to Numpy arrays with shape
+             (parameter_dimension, chain_length, number_of_chains)
+
+    burn_in: the number of observations to discard from the beginning
+
+    Returns
+    -------
+    a dictionary with the remaining samples
+
+    """
     return {variable_name: sample_chain[:, burn_in:, :]
             for variable_name, sample_chain
             in samples.items()}
 
 
-def extract_final_iteration_from_chains(samples: tp.Dict[str, np.ndarray]) \
-        -> tp.Dict[str, np.ndarray]:
-    return {variable_name: sample_chain[:, -1, :]
-            for variable_name, sample_chain
-            in samples.items()}
+# def extract_final_iteration_from_chains(samples: tp.Dict[str, np.ndarray]) \
+#         -> tp.Dict[str, np.ndarray]:
+#     return {variable_name: sample_chain[:, -1, :]
+#             for variable_name, sample_chain
+#             in samples.items()}
 
 
 def extract_final_iteration_from_samples_for_initialization(
         samples: tp.Dict[str, np.ndarray],
         variable_names: tp.Set[str]) \
         -> tp.List[tp.Dict[str, tp.Union[numbers.Number, np.ndarray]]]:
+    """
+    This function extracts the last iteration from each chain for a given set
+    of variables.
+
+    Parameters
+    ----------
+    samples: a dictionary mapping variable names to Numpy arrays with shape
+             (parameter_dimension, chain_length, number_of_chains)
+
+    variable_names: a set of variable names
+
+    Returns
+    -------
+    a dictionary mapping variable names to a numpy array of final samples
+
+    """
     numbers_of_chains = [samples[variable_name].shape[2]
                          for variable_name
                          in variable_names]
@@ -59,16 +117,39 @@ def extract_final_iteration_from_samples_for_initialization(
 
 def _check_sequence_of_chains_present(
         sequence_of_chains: tp.Sequence[tp.Dict[str, np.ndarray]]):
-    if len(sequence_of_chains) == 0:
-        raise ValueError('sequence_of_chains must contain at least one chain')
+    """
+    This function verifies that e sequence of samples is not empty not None.
 
+    Parameters
+    ----------
+    sequence_of_chains: a sequence of sample dictionaries
+
+    Returns
+    -------
+
+    """
     if sequence_of_chains is None:
         raise ValueError('sequence_of_chains must not be none')
+
+    if len(sequence_of_chains) == 0:
+        raise ValueError('sequence_of_chains must contain at least one chain')
 
 
 def _verify_and_get_variable_names_from_sequence_of_samples(
         sequence_of_samples: tp.Sequence[tp.Dict[str, np.ndarray]]) \
         -> tp.Set[str]:
+    """
+    This function verifies that all sample dictionaries in a sequence contain
+    the same set of variables and returns this set of variables.
+
+    Parameters
+    ----------
+    sequence_of_samples: a sequence of sample dictionaries
+
+    Returns
+    -------
+
+    """
     sequence_of_variable_name_sets = \
         [set(sample_chain.keys())
          for sample_chain
@@ -90,7 +171,16 @@ def merge_consecutive_chains(
     (i.e. continues the chains).
     This is useful if samples have been drawn from JAGS consecutively where each
     new sample chain starts from the last iteration of the previous sample.
+
+    Parameters
+    ----------
+    sequence_of_samples: a sequence of sample dictionaries
+
+    Returns
+    -------
+    a single sample dictionary merged along chain iterations
     """
+
     _check_sequence_of_chains_present(sequence_of_samples)
 
     merged_samples = {}

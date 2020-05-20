@@ -10,14 +10,15 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-from ._version import get_versions
-__version__ = get_versions()['version']
-del get_versions
+from .adaptive_sampling import (
+    MinimumEffectiveSampleSizeCriterion,
+    sample_until
+)
 
 from .arviz import convert_pyjags_samples_dict_to_arviz_inference_data
 from .chain_utilities import (
     discard_burn_in_samples,
-    extract_final_iteration_from_chains,
+    # extract_final_iteration_from_chains,
     extract_final_iteration_from_samples_for_initialization,
     merge_parallel_chains,
     merge_consecutive_chains
@@ -31,3 +32,7 @@ from .io import (
 
 from .model import *
 from .modules import *
+from ._version import get_versions
+
+__version__ = get_versions()['version']
+del get_versions
