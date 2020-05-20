@@ -44,8 +44,7 @@ def convert_pyjags_samples_dict_to_arviz_inference_data(
                 chains[0, :, :].transpose()
         else:
             for i in range(parameter_dimension):
-                parameter_name_to_samples_map[f'{parameter_name}_{i+1}'] = \
-                    chains[i, :, :].transpose()
+                parameter_name_to_samples_map[parameter_name] = \
+                    np.swapaxes(chains, 0, 2)
 
-    return az.InferenceData(
-        posterior=az.data.base.dict_to_dataset(parameter_name_to_samples_map))
+    return az.convert_to_inference_data(parameter_name_to_samples_map)
