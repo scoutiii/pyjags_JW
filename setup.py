@@ -78,7 +78,7 @@ if __name__ == '__main__':
           version=versioneer.get_version(),
           cmdclass=versioneer.get_cmdclass(),
           description='Python interface to JAGS library for Bayesian data analysis.',
-          long_description=content('README.rst'),
+          long_description=content('README.md'),
           author=u'Tomasz Miąsko, Michael Nowotny',
           author_email='tomasz.miasko@gmail.com, nowotnym@gmail.com',
           url='https://github.com/michaelnowotny/pyjags',
