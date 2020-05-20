@@ -19,6 +19,13 @@ from .model import Model
 
 class DiffDIC:
     def __init__(self, delta):
+        """
+        This class stores the difference in the DIC between two models.
+
+        Parameters
+        ----------
+        delta: Numpy array with the difference in the DIC for each observations
+        """
         self._delta = delta
 
         if isinstance(self.delta, np.ndarray):
@@ -46,6 +53,16 @@ class DiffDIC:
 
 class DIC:
     def __init__(self, deviance, penalty, type):
+        """
+        This class stores the Deviance Information Criterion (DIC) sampled from
+        a PyJAGS model.
+
+        Parameters
+        ----------
+        deviance
+        penalty
+        type: either 'pD' or 'popt'
+        """
         self._deviance = deviance
         self._penalty = penalty
         self._type = type
@@ -94,9 +111,22 @@ class DIC:
 def dic_samples(model,
                 n_iter,
                 thin = 1,
-                type = "pD",
-                *args,
-                **kwargs):
+                type = "pD"):
+    """
+    This function draws samples from a model and computes the
+    Deviance Information Criterion (DIC).
+
+    Parameters
+    ----------
+    model: a PyJAGS model instance
+    n_iter: the number of iterations to sample for
+    thin: a positive integer specifying thinning interval
+    type: either 'pD' or 'popt'
+
+    Returns
+    -------
+    the Deviance Information Criterion (DIC)
+    """
     if not isinstance(model, Model):
         raise ValueError("Invalid JAGS model")
 

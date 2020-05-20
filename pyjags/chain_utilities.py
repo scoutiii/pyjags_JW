@@ -65,13 +65,6 @@ def discard_burn_in_samples(
             in samples.items()}
 
 
-# def extract_final_iteration_from_chains(samples: tp.Dict[str, np.ndarray]) \
-#         -> tp.Dict[str, np.ndarray]:
-#     return {variable_name: sample_chain[:, -1, :]
-#             for variable_name, sample_chain
-#             in samples.items()}
-
-
 def extract_final_iteration_from_samples_for_initialization(
         samples: tp.Dict[str, np.ndarray],
         variable_names: tp.Set[str]) \
@@ -222,10 +215,18 @@ def merge_parallel_chains(
         sequence_of_samples: tp.Sequence[tp.Dict[str, np.ndarray]]) \
         -> tp.Dict[str, np.ndarray]:
     """
-    This function concatenates the chains in sample dictionaries parallely
+    This function concatenates sample dictionaries across chains
     (i.e. adds more chains of the same length for the same variables).
     This is useful if the starting value of each set of samples is different
     from the last iteration of the chains in the previous sample.
+
+    Parameters
+    ----------
+    sequence_of_samples: a sequence of sample dictionaries
+
+    Returns
+    -------
+    a single sample dictionary merged across chains
     """
     _check_sequence_of_chains_present(sequence_of_samples)
 

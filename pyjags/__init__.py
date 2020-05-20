@@ -18,7 +18,6 @@ from .adaptive_sampling import (
 from .arviz import convert_pyjags_samples_dict_to_arviz_inference_data
 from .chain_utilities import (
     discard_burn_in_samples,
-    # extract_final_iteration_from_chains,
     extract_final_iteration_from_samples_for_initialization,
     merge_parallel_chains,
     merge_consecutive_chains

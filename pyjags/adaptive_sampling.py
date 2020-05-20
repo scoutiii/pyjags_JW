@@ -26,6 +26,15 @@ class MinimumEffectiveSampleSizeCriterion:
     def __init__(self,
                  minimum_ess: int,
                  variable_names: tp.Optional[tp.List[str]] = None):
+        """
+        This class implements a minimum effective sample size criterion to be
+        used with sample_until.
+
+        Parameters
+        ----------
+        minimum_ess: the minimum effective sample size required
+        variable_names: the names of the variables to consider
+        """
         self._minimum_ess = minimum_ess
         self._variable_names = variable_names
 
