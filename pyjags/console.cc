@@ -360,13 +360,13 @@ PYBIND11_MODULE(console, module) {
     throw py::error_already_set();
   }
 
-  if (std::strcmp(PYJAGS_JAGS_VERSION, jags_version()) != 0) {
-    PyErr_Format(JagsError.ptr(),
-                 "Incompatible JAGS version. "
-                 "Compiled against version %s, but using version %s.",
-                 PYJAGS_JAGS_VERSION, jags_version());
-    throw py::error_already_set();
-  }
+//  if (std::strcmp(PYJAGS_JAGS_VERSION, jags_version()) != 0) {
+//    PyErr_Format(JagsError.ptr(),
+//                 "Incompatible JAGS version. "
+//                 "Compiled against version %s, but using version %s.",
+//                 PYJAGS_JAGS_VERSION, jags_version());
+//    throw py::error_already_set();
+//  }
 
   py::enum_<DumpType>(module, "DumpType",
                       "Flags for the function Console#dump_state")

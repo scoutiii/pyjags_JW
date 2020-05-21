@@ -14,6 +14,7 @@
 
 import io
 import os
+import platform
 from setuptools import dist, setup, Extension
 import subprocess
 import sys
@@ -53,9 +54,37 @@ def add_pkg_config(ext, package):
 
 
 def add_jags(ext):
-    version = add_pkg_config(ext, 'jags')
-    version = '"{}"'.format(version)
-    ext.define_macros.append(('PYJAGS_JAGS_VERSION', version))
+    if 'windows' in platform.system().lower():
+        JAGS_HOME = os.environ.get('JAGS_HOME')
+
+        if JAGS_HOME is None:
+            JAGS_HOME = r'C:\Program Files\JAGS\JAGS-4.3.0'
+            print(f'environment variable JAGS_HOME not defined, defaulting to {JAGS_HOME}')
+        else:
+            print(f'environment variable JAGS_HOME is defined as {JAGS_HOME}')
+        version = os.path.split(JAGS_HOME)[1][5:]
+        version = '"{}"'.format(version)
+
+        ext.include_dirs.append(rf'{JAGS_HOME}\include')
+        if any('64' in element for element in platform.architecture()):
+            print('On 64 Bit Architecture')
+            lib_dir = rf'{JAGS_HOME}\x64\bin'
+        else:
+            print('On 32 Bit Architecture')
+            lib_dir = rf'{JAGS_HOME}\i386\bin'
+
+        ext.library_dirs.append(lib_dir)
+
+        # the Extension property runtime_library_dirs is not used on Windows
+        # ext.runtime_library_dirs.append(lib_dir)
+
+        # ToDo: How to tell the Python build system to tell the C++ linker to look for a .dll instead of a .lib?
+        # ext.libraries.append('jags-4')
+        ext.define_macros.append(('PYJAGS_JAGS_VERSION', version))
+    else:
+        version = add_pkg_config(ext, 'jags')
+        version = '"{}"'.format(version)
+        ext.define_macros.append(('PYJAGS_JAGS_VERSION', version))
 
 
 def add_numpy(ext):
@@ -68,16 +97,19 @@ def add_numpy(ext):
 
 def add_pybind11(ext):
     ext.include_dirs.append('pybind11/include')
-    ext.extra_compile_args.append('-std=c++14')
+    if not 'windows' in platform.system().lower():
+        ext.extra_compile_args.append('-std=c++14')
 
 
 if __name__ == '__main__':
     ext = Extension('pyjags.console',
                     language='c++',
                     sources=['pyjags/console.cc'])
+
     add_jags(ext)
     add_numpy(ext)
     add_pybind11(ext)
+
 
     setup(name='pyjags',
           version=versioneer.get_version(),
@@ -111,4 +143,5 @@ if __name__ == '__main__':
           install_requires=['arviz',
                             'deepdish',
                             'numpy'],
-          test_suite='test')
+          test_suite='test',
+          )
