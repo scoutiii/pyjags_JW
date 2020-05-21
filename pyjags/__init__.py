@@ -11,7 +11,9 @@
 # GNU General Public License for more details.
 
 from .adaptive_sampling import (
-    MinimumEffectiveSampleSizeCriterion,
+    EffectiveSampleSizeCriterion,
+    RHatDeviationCriterion,
+    EffectiveSampleSizeAndRHatCriterion,
     sample_until
 )
 

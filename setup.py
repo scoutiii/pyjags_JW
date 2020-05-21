@@ -29,11 +29,6 @@ except FileNotFoundError:
     long_description = DESCRIPTION
 
 
-def content(path):
-    with open(path) as fh:
-        return fh.read()
-
-
 def add_pkg_config(ext, package):
     flags_map = {
         '-I': ['include_dirs'],
@@ -90,8 +85,8 @@ if __name__ == '__main__':
           description='Python interface to JAGS library for Bayesian data analysis.',
           long_description=long_description,
           long_description_content_type='text/markdown',
-          author=u'Tomasz Miąsko, Michael Nowotny',
-          author_email='tomasz.miasko@gmail.com, nowotnym@gmail.com',
+          author=u'Michael Nowotny',
+          author_email='nowotnym@gmail.com',
           url='https://github.com/michaelnowotny/pyjags',
           license='GPLv2',
           classifiers=[

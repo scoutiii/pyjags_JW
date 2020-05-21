@@ -14,10 +14,9 @@ __all__ = ['Model']
 
 import collections
 import contextlib
+import numpy as np
 import sys
 import tempfile
-
-import numpy as np
 
 from .console import Console, DUMP_ALL, DUMP_DATA, DUMP_PARAMETERS
 from .modules import load_module
