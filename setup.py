@@ -16,6 +16,7 @@ import io
 import os
 import platform
 from setuptools import dist, setup, Extension
+from Cython.Distutils import build_ext
 import subprocess
 import sys
 import versioneer
@@ -110,10 +111,10 @@ if __name__ == '__main__':
     add_numpy(ext)
     add_pybind11(ext)
 
-
     setup(name='pyjags',
           version=versioneer.get_version(),
-          cmdclass=versioneer.get_cmdclass(),
+          # cmdclass=versioneer.get_cmdclass(),
+          cmdclass={'build_ext': build_ext},
           description='Python interface to JAGS library for Bayesian data analysis.',
           long_description=long_description,
           long_description_content_type='text/markdown',

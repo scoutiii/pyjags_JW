@@ -22,3 +22,11 @@ A working JAGS installation is required.
 * Package on the Python Package Index <https://pypi.python.org/pypi/pyjags>
 * Project page on github <https://github.com/michaelnowotny/pyjags>
 * JAGS manual and examples <http://sourceforge.net/projects/mcmc-jags/files/>
+
+
+## Acknowledgements
+
+
+* JAGS was created by Martyn Plummer
+* PyJAGS was originally created by Tomasz Miasko
+* As of May 2020, PyJAGS is developed by Michael Nowotny
