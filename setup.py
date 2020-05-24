@@ -15,7 +15,9 @@
 import io
 import os
 import platform
-from setuptools import dist, setup, Extension
+from distutils.core import setup
+from distutils.extension import Extension
+# from setuptools import dist, setup, Extension
 from Cython.Distutils import build_ext
 import subprocess
 import sys
@@ -80,7 +82,7 @@ def add_jags(ext):
         # ext.runtime_library_dirs.append(lib_dir)
 
         # ToDo: How to tell the Python build system to tell the C++ linker to look for a .dll instead of a .lib?
-        # ext.libraries.append('jags-4')
+        # ext.libraries.append('libjags')
         ext.define_macros.append(('PYJAGS_JAGS_VERSION', version))
     else:
         version = add_pkg_config(ext, 'jags')
@@ -105,7 +107,9 @@ def add_pybind11(ext):
 if __name__ == '__main__':
     ext = Extension('pyjags.console',
                     language='c++',
-                    sources=['pyjags/console.cc'])
+                    sources=['pyjags/console.cc'],
+                    libraries=['libjags-4'],
+                    library_dirs=['.'])
 
     add_jags(ext)
     add_numpy(ext)
