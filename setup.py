@@ -15,10 +15,10 @@
 import io
 import os
 import platform
-from distutils.core import setup
-from distutils.extension import Extension
-# from setuptools import dist, setup, Extension
-from Cython.Distutils import build_ext
+# from distutils.core import setup
+# from distutils.extension import Extension
+from setuptools import dist, setup, Extension
+# from Cython.Distutils import build_ext
 import subprocess
 import sys
 import versioneer
@@ -108,7 +108,7 @@ if __name__ == '__main__':
     ext = Extension('pyjags.console',
                     language='c++',
                     sources=['pyjags/console.cc'],
-                    libraries=['libjags-4'],
+                    # libraries=['libjags-4'],
                     library_dirs=['.'])
 
     add_jags(ext)
@@ -117,8 +117,8 @@ if __name__ == '__main__':
 
     setup(name='pyjags',
           version=versioneer.get_version(),
-          # cmdclass=versioneer.get_cmdclass(),
-          cmdclass={'build_ext': build_ext},
+          cmdclass=versioneer.get_cmdclass(),
+          # cmdclass={'build_ext': build_ext},
           description='Python interface to JAGS library for Bayesian data analysis.',
           long_description=long_description,
           long_description_content_type='text/markdown',
