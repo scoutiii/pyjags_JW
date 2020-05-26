@@ -156,6 +156,9 @@ class EffectiveSampleSizeAndRHatCriterion:
                maximum_rhat_deviation <= self.maximum_rhat_deviation
 
 
+IterationFunctionType = tp.Callable[[tp.Dict[str, np.ndarray], bool, int], None]
+
+
 def sample_until(model: Model,
                  criterion: tp.Callable[[tp.Dict[str, np.ndarray], bool], bool],
                  previous_samples: tp.Optional[tp.Dict[str, np.ndarray]] = None,
@@ -164,7 +167,9 @@ def sample_until(model: Model,
                  vars: tp.Sequence[str] = None,
                  thin: int = 1,
                  monitor_type: str = "trace",
-                 verbose: bool = False) -> tp.Dict[str, np.ndarray]:
+                 verbose: bool = False,
+                 iteration_function: tp.Optional[IterationFunctionType] = None) \
+        -> tp.Dict[str, np.ndarray]:
     """
     This function progressively samples from a model until a criterion is met.
 
@@ -179,10 +184,16 @@ def sample_until(model: Model,
     thin: a positive integer specifying thinning interval
     monitor_type
     verbose: whether to output step information
+    iteration_function: A function to be called at the end of each iteration with
+                        arguments:
+                        1. dictionary of samples so far
+                        2. boolean indicating whether the criterion has been met
+                        3. integer of iterations so far
+                        returning None
 
     Returns
     -------
-
+    a dictionary of samples
     """
 
     if chunk_size > max_iterations:
@@ -216,6 +227,11 @@ def sample_until(model: Model,
         iterations_left -= iterations
 
         criterion_satisfied = criterion(previous_samples, verbose)
+
+        if iteration_function is not None:
+            iteration_function(previous_samples,
+                               criterion_satisfied,
+                               max_iterations - iterations_left)
 
         if criterion_satisfied:
             break

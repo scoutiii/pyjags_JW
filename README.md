@@ -11,6 +11,9 @@ PyJAGS adds the following features on top of JAGS:
 
 License: GPLv2
 
+## Supported Platforms
+PyJAGS works on MacOS and Linux. Windows is not currently supported.
+
 ## Installation
 A working JAGS installation is required.
 
