@@ -109,7 +109,8 @@ if __name__ == '__main__':
                     language='c++',
                     sources=['pyjags/console.cc'],
                     # libraries=['libjags-4'],
-                    library_dirs=['.'])
+                    # library_dirs=['.']
+                    )
 
     add_jags(ext)
     add_numpy(ext)
