@@ -17,7 +17,7 @@ from .incremental_sampling import (
     sample_until
 )
 
-from .arviz import convert_pyjags_samples_dict_to_arviz_inference_data
+from .arviz import from_pyjags
 from .chain_utilities import (
     discard_burn_in_samples,
     extract_final_iteration_from_samples_for_initialization,
