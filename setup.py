@@ -115,7 +115,6 @@ if __name__ == '__main__':
     add_jags(ext)
     add_numpy(ext)
     add_pybind11(ext)
-
     setup(name='pyjags',
           version=versioneer.get_version(),
           cmdclass=versioneer.get_cmdclass(),
@@ -146,8 +145,10 @@ if __name__ == '__main__':
           ],
           packages=['pyjags'],
           ext_modules=[ext],
-          install_requires=['arviz',
-                            'deepdish',
-                            'numpy'],
+          install_requires=[
+              'numpy',
+              'arviz',
+              'deepdish'
+          ],
           test_suite='test',
           )
