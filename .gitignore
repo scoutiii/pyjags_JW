@@ -5,3 +5,4 @@ doc/_build
 *.so
 
 .idea/
+/pyjags.egg-info/
