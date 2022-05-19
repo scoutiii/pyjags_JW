@@ -303,9 +303,9 @@ class Model:
         """Set parameters and configure random number generators."""
         if init is None:
             init = {}
-        if isinstance(init, collections.Mapping):
+        if isinstance(init, collections.abc.Mapping):
             init = [init] * self.chains
-        elif not isinstance(init, collections.Sequence):
+        elif not isinstance(init, collections.abc.Sequence):
             raise ValueError('Init should be a sequence or a dictionary.')
         if len(init) != self.chains:
             raise ValueError(

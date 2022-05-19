@@ -124,7 +124,7 @@ class TestModel(unittest.TestCase):
         '''
 
         N = 100
-        n = np.random.random_integers(1, 10, N)
+        n = np.random.randint(1, 11, N)
         x = np.random.binomial(n, 0.10, N)
         x = np.ma.masked_array(x, np.random.choice([0, 1], size=N))
         data = dict(n=n, x=x, N=N)
