@@ -136,7 +136,7 @@ jobs:
       # ---- Test the installed wheel like a user would (replaces "Sanity import test")
       - name: Run tests against installed wheel (no repo shadowing)
         env:
-          PYTHONPATH: ""
+          PYTHONPATH: ""   # ensure current dir isn't implicitly on sys.path
         shell: bash {0}
         run: |
           set -euxo pipefail
@@ -144,22 +144,27 @@ jobs:
           python -m venv venv_rt
           source venv_rt/bin/activate
           unset CONDA_PREFIX CONDA_DEFAULT_ENV MAMBA_ROOT_PREFIX PKG_CONFIG_PATH DYLD_LIBRARY_PATH LD_LIBRARY_PATH
-          python -m pip install -U pip
-          python -m pip install pytest
+          python -m pip install -U pip pytest
 
           # prefer repaired wheels; fall back to dist if none
           whl="$(ls wheelhouse/*.whl 2>/dev/null || true)"
           if [ -z "$whl" ]; then whl="$(ls dist/*.whl | head -n1)"; fi
           python -m pip install "$whl"
 
-          # prove where pyjags comes from
+          # --- prove we're importing the installed wheel, not the repo ---
           python - <<'PY'
-          import os, importlib.util as iu, pyjags
-          print("pyjags FROM:", os.path.dirname(pyjags.__file__))
-          print("console spec:", iu.find_spec("pyjags.console"))
+          import os, sys, importlib.util as iu, pyjags
+          pkg_dir = os.path.dirname(pyjags.__file__)
+          print("pyjags FROM:", pkg_dir)
+          spec = iu.find_spec("pyjags.console")
+          print("console spec:", spec)
+          ws = os.environ.get("GITHUB_WORKSPACE") or ""
+          assert not pkg_dir.startswith(ws), f"Imported from repo checkout: {pkg_dir}"
+          assert spec is not None and spec.origin and ("site-packages" in spec.origin or ".venv" in spec.origin), \
+                f"console not found in installed package: {spec}"
           PY
 
-          # run pytest from a temp dir containing only tests to avoid repo shadowing
+          # --- run tests from a temp dir containing ONLY the tests ---
           tdir="$(mktemp -d)"
           if [ -d tests ]; then
             cp -a tests "$tdir"/
@@ -167,7 +172,13 @@ jobs:
             echo "No tests/ directory found"; ls -la; exit 1
           fi
           cd "$tdir"
-          python -m pytest -q
+          # (optional) print sys.path once
+          python - <<'PY'
+          import sys, pprint; pprint.pp(sys.path)
+          PY
+          # run the suite; fail fast on first error for cleaner logs
+          python -m pytest -q --maxfail=1 -ra
+
 
       - name: Upload artifacts (repaired wheels + sdist)
         uses: actions/upload-artifact@v4
