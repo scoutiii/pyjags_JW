@@ -136,48 +136,55 @@ jobs:
       # ---- Test the installed wheel like a user would (replaces "Sanity import test")
       - name: Run tests against installed wheel (no repo shadowing)
         env:
-          PYTHONPATH: ""   # ensure current dir isn't implicitly on sys.path
+          PYTHONPATH: ""   # keep repo off sys.path
         shell: bash {0}
         run: |
           set -euxo pipefail
-          # fresh runtime venv outside conda/mamba
-          python -m venv venv_rt
-          source venv_rt/bin/activate
+
+          # 1) Resolve the wheel NOW (absolute path), before we leave the repo dir
+          WHL_REL="$(ls wheelhouse/*.whl 2>/dev/null || ls dist/*.whl | head -n1)"
+          python - <<'PY' > /tmp/wheel_abspath.txt
+          import os, sys, glob
+          whl = sorted(glob.glob("wheelhouse/*.whl") or glob.glob("dist/*.whl"))[-1]
+          print(os.path.abspath(whl))
+          PY
+          WHL="$(cat /tmp/wheel_abspath.txt)"
+
+          # 2) Create a temp workspace that contains ONLY tests/
+          TDIR="$(mktemp -d)"
+          if [ -d tests ]; then
+            cp -a tests "$TDIR"/
+          else
+            echo "No tests/ directory found"; ls -la; exit 1
+          fi
+
+          # 3) Change directory EARLY to avoid importing from the repo
+          cd "$TDIR"
+
+          # 4) Fresh runtime venv; simulate a normal user machine
+          python -m venv .venv_rt
+          source .venv_rt/bin/activate
           unset CONDA_PREFIX CONDA_DEFAULT_ENV MAMBA_ROOT_PREFIX PKG_CONFIG_PATH DYLD_LIBRARY_PATH LD_LIBRARY_PATH
           python -m pip install -U pip pytest
+          python -m pip install "$WHL"
 
-          # prefer repaired wheels; fall back to dist if none
-          whl="$(ls wheelhouse/*.whl 2>/dev/null || true)"
-          if [ -z "$whl" ]; then whl="$(ls dist/*.whl | head -n1)"; fi
-          python -m pip install "$whl"
-
-          # --- prove we're importing the installed wheel, not the repo ---
+          # 5) Prove we’re importing from site-packages, not the repo
           python - <<'PY'
           import os, sys, importlib.util as iu, pyjags
           pkg_dir = os.path.dirname(pyjags.__file__)
           print("pyjags FROM:", pkg_dir)
           spec = iu.find_spec("pyjags.console")
           print("console spec:", spec)
+          # Defensive: fail if somehow still pointing at workspace
           ws = os.environ.get("GITHUB_WORKSPACE") or ""
           assert not pkg_dir.startswith(ws), f"Imported from repo checkout: {pkg_dir}"
-          assert spec is not None and spec.origin and ("site-packages" in spec.origin or ".venv" in spec.origin), \
+          assert spec and spec.origin and ("site-packages" in spec.origin or ".venv" in spec.origin), \
                 f"console not found in installed package: {spec}"
           PY
 
-          # --- run tests from a temp dir containing ONLY the tests ---
-          tdir="$(mktemp -d)"
-          if [ -d tests ]; then
-            cp -a tests "$tdir"/
-          else
-            echo "No tests/ directory found"; ls -la; exit 1
-          fi
-          cd "$tdir"
-          # (optional) print sys.path once
-          python - <<'PY'
-          import sys, pprint; pprint.pp(sys.path)
-          PY
-          # run the suite; fail fast on first error for cleaner logs
+          # 6) Run the tests (current dir has only tests/)
           python -m pytest -q --maxfail=1 -ra
+
 
 
       - name: Upload artifacts (repaired wheels + sdist)
