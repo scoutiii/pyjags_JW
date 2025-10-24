@@ -133,25 +133,35 @@ jobs:
               assert has_ext, "Wheel missing compiled extension pyjags/console*"
           PY
 
-      # ---- Test the installed wheel like a user would (isolated temp dir)
-      - name: Run tests against installed wheel (no repo shadowing)
+      # ---- Test the installed wheel like a user would (no repo shadowing; no test copying)
+      - name: Run tests against installed wheel (from temp dir)
         env:
           PYTHONPATH: ""   # keep repo off sys.path
         shell: bash {0}
         run: |
           set -euxo pipefail
 
-          # 0) Resolve absolute paths to artifacts while still in repo
+          # 0) Resolve absolute paths to artifacts while still in repo.
+          #    IMPORTANT: on Linux/macOS, require a repaired wheel so native deps are vendored.
           python - <<'PY' > /tmp/artifacts.txt
-          import glob, os
-          whl = sorted(glob.glob("wheelhouse/*.whl") or glob.glob("dist/*.whl"))[-1]
+          import glob, os, platform, sys
+          osname = platform.system()
+          wheel_candidates = []
+          if osname in ("Linux", "Darwin"):
+              wheel_candidates = glob.glob("wheelhouse/*.whl")
+              if not wheel_candidates:
+                  print("ERROR: No repaired wheel in wheelhouse/; refusing to use dist/ on", osname, file=sys.stderr)
+                  sys.exit(2)
+          else:
+              wheel_candidates = glob.glob("wheelhouse/*.whl") or glob.glob("dist/*.whl")
+          wheel = sorted(wheel_candidates)[-1]
           sdist = sorted(glob.glob("dist/*.tar.gz"))[-1]
-          print(os.path.abspath(whl))
+          print(os.path.abspath(wheel))
           print(os.path.abspath(sdist))
           PY
           read WHL SDIST < /tmp/artifacts.txt
 
-          # 1) Create & enter a temp workspace FIRST (prevents repo shadowing)
+          # 1) Enter a temp workspace FIRST (prevents repo shadowing)
           TDIR="$(mktemp -d)"
           cd "$TDIR"
 
@@ -162,18 +172,16 @@ jobs:
           python -m pip install -U pip pytest
           python -m pip install "$WHL"
 
-          # 3) Extract ONLY tests/ from the sdist (fallback to repo-style layout if missing)
-          mkdir sdist_src
-          tar -xzf "$SDIST" -C sdist_src
-          TESTDIR="$(find sdist_src -maxdepth 2 -type d -name tests | head -n1 || true)"
-          if [ -n "$TESTDIR" ] && [ -d "$TESTDIR" ]; then
-            cp -a "$TESTDIR" ./tests
-          elif [ -d "$GITHUB_WORKSPACE/tests" ]; then
-            # fallback if tests not yet included in sdist
-            cp -a "$GITHUB_WORKSPACE/tests" ./tests
+          # 3) Point pytest to tests/ by absolute path (no copying needed)
+          if [ -d "$GITHUB_WORKSPACE/tests" ]; then
+            TESTS_DIR="$GITHUB_WORKSPACE/tests"
           else
-            echo "No tests/ directory found (sdist or repo)"; exit 1
+            # fallback: extract tests from sdist if not in repo (downstream builders)
+            mkdir sdist_src
+            tar -xzf "$SDIST" -C sdist_src
+            TESTS_DIR="$(find sdist_src -maxdepth 2 -type d -name tests | head -n1 || true)"
           fi
+          test -n "$TESTS_DIR" && [ -d "$TESTS_DIR" ] || { echo "No tests/ found"; exit 1; }
 
           # 4) Probe where we import from & show native deps status
           python - <<'PY'
@@ -205,8 +213,8 @@ jobs:
             Darwin) echo "== OTOOL -L on console =="; otool -L "$CONSOLE" || true ;;
           esac
 
-          # 6) Run the tests (current dir has only tests/)
-          python -m pytest -q --maxfail=1 -ra
+          # 6) Run the tests (from temp dir, collecting by absolute path)
+          python -m pytest -q --maxfail=1 -ra "$TESTS_DIR"
 
       - name: Upload artifacts (repaired wheels + sdist)
         uses: actions/upload-artifact@v4
