@@ -20,40 +20,43 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Python (for build tooling)
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
 
-      # Install JAGS with micromamba (no -dev packages needed)
       - name: Install JAGS via micromamba
         uses: mamba-org/setup-micromamba@v2
         with:
           micromamba-version: "latest"
+          environment-name: jags
           condarc: |
             channels:
               - conda-forge
               - defaults
-          environment-name: jags
           create-args: >-
             python=${{ matrix.python-version }}
             jags
             pkg-config
 
-      - name: Show JAGS version (sanity)
+      # use the micromamba env in all following steps
+      - name: Show JAGS & Python
         shell: bash -l {0}
         run: |
-            echo "Conda prefix: $CONDA_PREFIX"
-            pkg-config --modversion jags || true
-            python -c "import sys; print(sys.version)"
+          echo "CONDA_PREFIX=$CONDA_PREFIX"
+          pkg-config --modversion jags || true
+          python -c "import sys; print('python:', sys.version)"
 
-      - name: Install package + test deps
+      - name: Install test deps (NumPy first) and package (editable)
         shell: bash -l {0}
         run: |
-          python -m pip install -U pip
+          python -m pip install -U pip setuptools wheel
+          # Install NumPy explicitly to avoid any resolution weirdness
+          python -m pip install "numpy>=1.23" pytest
+          # Now install your package (editable) which will pull the rest
           python -m pip install -e .
-          python -m pip install pytest
+          python -c "import numpy, sys; print('numpy:', numpy.__version__, 'exe:', sys.executable)"
 
       - name: Run tests
         shell: bash -l {0}
