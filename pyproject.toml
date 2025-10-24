@@ -4,7 +4,8 @@ requires = [
   "pybind11>=2.12",
   "packaging",
   "setuptools",
-  "wheel"
+  "wheel",
+  "numpy>=2.0"
 ]
 build-backend = "scikit_build_core.build"
 
