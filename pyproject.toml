@@ -1,11 +1,5 @@
 [build-system]
-requires = [
-  "scikit-build-core>=0.10",
-  "cmake>=3.24",
-  "ninja>=1.10",
-  "pybind11>=2.11",
-  "numpy>=1.23",
-]
+requires = ["scikit-build-core>=0.10", "pybind11>=2.12", "packaging"]
 build-backend = "scikit_build_core.build"
 
 [project]
@@ -45,18 +39,22 @@ Homepage = "https://github.com/scoutiii/pyjags_JW"
 Issues = "https://github.com/scoutiii/pyjags_JW/issues"
 
 [tool.scikit-build]
+# Include this Python package (the one you "import")
 wheel.packages = ["pyjags"]
 
-# Make sure C++ sources and CMake files land in the sdist
+# Ensure C++ sources and build scripts are present when building from sdist
 sdist.include = [
   "CMakeLists.txt",
   "pyproject.toml",
-  "pyjags/console.cc",
   "pyjags/__init__.py",
   "pyjags/*.py",
+  "pyjags/console.cc",
   "LICENSE",
-  "README.*"
+  "README*"
 ]
+
+# (Optional) keep builds tidy; not required
+build-dir = "build/{wheel_tag}"
 
 # Keep logging informative but not noisy
 logging.level = "INFO"

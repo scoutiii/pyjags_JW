@@ -103,19 +103,29 @@ jobs:
             delocate-listdeps wheelhouse/*.whl
           '
       
-      - name: Inspect wheel contents (should contain pyjags/console*.so)
+      - name: Inspect wheel contents (must contain pyjags/console*.so)
         shell: bash {0}
         run: |
           set -euxo pipefail
-          whl="$(ls wheelhouse/*.whl 2>/dev/null || ls dist/*.whl | head -n1)"
+          WHL="$(ls wheelhouse/*.whl 2>/dev/null || ls dist/*.whl | head -n1)"
+          echo "Inspecting wheel: $WHL"
           python - <<'PY'
-          import sys, zipfile, glob
-          whl = max(glob.glob("wheelhouse/*.whl") or glob.glob("dist/*.whl"))
+          import glob, zipfile, sys
+          whl = sorted(glob.glob("wheelhouse/*.whl") or glob.glob("dist/*.whl"))[-1]
+          print("== WHEEL FILES ==")
           with zipfile.ZipFile(whl) as z:
-              has_ext = any(p.startswith("pyjags/console") and p.endswith((".so",".dylib",".pyd")) for p in z.namelist())
-              print("Wheel:", whl, "has_ext:", has_ext)
+              for p in sorted(z.namelist()):
+                  print(p)
+              has_ext = any(
+                  p.startswith("pyjags/") and
+                  p.split("/")[-1].startswith("console.") and
+                  p.split("/")[-1].endswith((".so",".dylib",".pyd"))
+                  for p in z.namelist()
+              )
+              print("has_ext:", has_ext)
               assert has_ext, "Wheel missing compiled extension pyjags/console*"
           PY
+
 
 
       # ---- Optional: prove the wheel is self-contained outside conda
@@ -133,8 +143,12 @@ jobs:
           if [ -z "$whl" ]; then whl="$(ls dist/*.whl | head -n1)"; fi
           python -m pip install "$whl"
           python - <<'PY'
-          import pyjags, sys
-          print("OK import:", pyjags.__file__)
+          import pyjags, os, sys
+          print("pyjags package dir:", os.path.dirname(pyjags.__file__))
+          print("package files:", sorted(os.listdir(os.path.dirname(pyjags.__file__))))
+          import importlib
+          m = importlib.import_module("pyjags.console")
+          print("loaded:", m)
           PY
 
       - name: Upload artifacts (repaired wheels + sdist)
