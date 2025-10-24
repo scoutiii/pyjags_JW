@@ -16,5 +16,8 @@ cd JAGS-*
 make -j"$(nproc)"
 make install
 
-export PKG_CONFIG_PATH="${PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
-echo "PKG_CONFIG_PATH=${PKG_CONFIG_PATH}"
+export PKG_CONFIG_PATH="/opt/jags/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+export CPPFLAGS="-I/opt/jags/include ${CPPFLAGS:-}"
+export LDFLAGS="-L/opt/jags/lib ${LDFLAGS:-}"
+echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
+

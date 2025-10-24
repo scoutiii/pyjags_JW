@@ -47,6 +47,7 @@ Issues = "https://github.com/scoutiii/pyjags_JW/issues"
 
 [tool.scikit-build]
 wheel.packages = ["pyjags"]
+cmake.minimum-version = "3.20"
 
 sdist.include = [
   "CMakeLists.txt",
@@ -82,6 +83,7 @@ macos.archs = ["universal2"]
 linux.archs = ["x86_64", "aarch64"]
 linux.manylinux-policy = "manylinux_2_28"   # or "manylinux_2_17_x86_64" if you need wider glibc
 
+
 # Provide common env to the build (CMake/find_package/pkg-config)
 environment = [
   "PKG_CONFIG_PATH",
@@ -96,3 +98,6 @@ before-all-macos = "bash {project}/ci/install_jags_macos.sh"
 
 # If you also add Windows later:
 # before-all-windows = "bash {project}/ci/install_jags_windows.sh"
+
+[tool.cibuildwheel.macos.environment]
+CMAKE_OSX_ARCHITECTURES = "arm64;x86_64"

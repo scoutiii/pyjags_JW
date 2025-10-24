@@ -1,69 +1,74 @@
 cmake_minimum_required(VERSION 3.20)
 project(pyjags_console LANGUAGES CXX)
 
-# Python, NumPy, pybind11
-find_package(Python COMPONENTS Interpreter Development.Module NumPy REQUIRED)
+# --- Python, NumPy, pybind11 ---
+# Development.Module gives us the Python extension suffix and link flags,
+# NumPy gives us the headers for array conversions (even if console.cc doesn’t need them now).
+find_package(Python REQUIRED COMPONENTS Interpreter Development.Module NumPy)
 find_package(pybind11 CONFIG REQUIRED)
 
-# JAGS via pkg-config
+# --- JAGS via pkg-config ---
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(JAGS REQUIRED jags)
 
-# Explicit source path + guard (helps sdists)
+# Source (explicit path makes sdists predictable)
 set(CONSOLE_SRC "${PROJECT_SOURCE_DIR}/pyjags/console.cc")
 if(NOT EXISTS "${CONSOLE_SRC}")
   message(FATAL_ERROR "Expected source not found: ${CONSOLE_SRC}")
 endif()
 
 # Build the extension module
-pybind11_add_module(console MODULE "${CONSOLE_SRC}")
+add_library(console MODULE "${CONSOLE_SRC}")
+target_compile_features(console PRIVATE cxx_std_17)
 
-# Ensure the file name is "console.<abi>.<plat>.so" (no "lib" prefix etc.)
-# pybind11_add_module already sets this, but these keep it explicit & portable:
-set_target_properties(console PROPERTIES
-  PREFIX ""  # avoid 'lib' prefix on some platforms/generators
+# Include + link paths
+target_include_directories(console PRIVATE
+  ${Python_INCLUDE_DIRS}
+  ${Python_NumPy_INCLUDE_DIRS}
+  ${JAGS_INCLUDE_DIRS}
 )
 
-# Compile flags
-target_compile_features(console PRIVATE cxx_std_14)
-if(MSVC)
-  target_compile_options(console PRIVATE /W3)
-else()
-  target_compile_options(console PRIVATE -Wall -Wextra -Wno-deprecated-declarations)
+# On some distros pkg-config provides link dirs separately
+if(JAGS_LIBRARY_DIRS)
+  target_link_directories(console PRIVATE ${JAGS_LIBRARY_DIRS})
 endif()
 
-# Include dirs & link to JAGS
-target_include_directories(console PRIVATE
-  ${JAGS_INCLUDE_DIRS}
-  ${Python_NumPy_INCLUDE_DIRS}
-)
-
-# JAGS libs from pkg-config
+# Link against pybind11 (module flavor), Python, and JAGS
 target_link_libraries(console PRIVATE
   pybind11::module
+  ${Python_LIBRARIES}
   ${JAGS_LIBRARIES}
 )
 
-# Pass through any extra -L/-Wl flags from pkg-config
-target_link_options(console PRIVATE ${JAGS_LDFLAGS_OTHER})
+# Ensure we get "console.<abi>.<plat>.so" (no "lib" prefix) and correct suffix
+set_target_properties(console PROPERTIES
+  PREFIX ""
+  SUFFIX "${Python_EXTENSION_SUFFIX}"
+)
 
-# RPATH suitable for wheels
+# Stricter linking on Linux to fail fast if something is missing
+if(APPLE)
+  # Let undefined symbols resolve at runtime against Python on macOS
+  target_link_options(console PRIVATE "-Wl,-undefined,dynamic_lookup")
+else()
+  target_link_options(console PRIVATE "-Wl,--no-undefined")
+endif()
+
+# RPATH so the loader can find vendored libs placed by auditwheel/delocate
+# Linux uses $ORIGIN; macOS uses @loader_path
 if(APPLE)
   set_target_properties(console PROPERTIES
+    BUILD_RPATH "@loader_path"
     INSTALL_RPATH "@loader_path"
-    BUILD_WITH_INSTALL_RPATH ON
   )
 else()
   set_target_properties(console PROPERTIES
+    BUILD_RPATH "\$ORIGIN"
     INSTALL_RPATH "\$ORIGIN"
-    BUILD_WITH_INSTALL_RPATH ON
   )
 endif()
 
-# Install the module into the package directory *inside* the wheel
-# scikit-build-core collects from the install tree.
+# Install into the pyjags/ package within the wheel
 install(TARGETS console
   LIBRARY DESTINATION pyjags
-  RUNTIME DESTINATION pyjags
-  ARCHIVE DESTINATION pyjags
 )
