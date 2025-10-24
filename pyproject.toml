@@ -1,0 +1,32 @@
+[build-system]
+requires = [
+  "setuptools>=70",
+  "wheel",
+  "pybind11>=2.11",
+  "oldest-supported-numpy",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyjags_JW"
+version = "0.1.0"
+description = "Python interface to JAGS (updated for Python 3.11+, JW=Just Works)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "GPL-2.0-or-later"}
+authors = [{name="Scout Jarman"}]
+dependencies = [
+  # core runtime deps only; deepdish becomes optional
+  "xarray>=2023.7.0",
+  "arviz>=0.16",
+]
+optional-dependencies = { io = ["deepdish>=0.3.7"] }
+
+[tool.setuptools]
+packages = ["pyjags"]
+
+[tool.setuptools.package-data]
+pyjags = ["*.py"]
+
+[tool.setuptools.ext_modules]
+# empty; defined dynamically in setup.cfg or setup.py

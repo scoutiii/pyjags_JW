@@ -1,0 +1,46 @@
+name: wheels
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-13, macos-14]
+        python: ["cp310", "cp311", "cp312", "cp313", "cp314"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pypa/cibuildwheel@v2.21
+        env:
+          CIBW_BUILD: ${{ matrix.python}}-*
+          CIBW_ARCHS_MACOS: "x86_64 arm64"
+          CIBW_SKIP: "pp* *-musllinux*"
+          CIBW_ENVIRONMENT: >
+            PIP_ONLY_BINARY=:all:
+          CIBW_BEFORE_ALL_LINUX: |
+            yum install -y pkgconfig  # pkg-config present
+            # We DO NOT install JAGS here; wheel will link against external libjags.
+          CIBW_REPAIR_WHEEL_COMMAND_LINUX: >
+            auditwheel repair -w {dest_dir} --exclude libjags.so.* {wheel}
+          CIBW_REPAIR_WHEEL_COMMAND_MACOS: >
+            delocate-listdeps {wheel} && delocate-wheel -w {dest_dir} {wheel}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels
+          path: wheelhouse/*.whl
+
+  publish:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: wheels
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
