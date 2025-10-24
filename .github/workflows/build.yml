@@ -133,38 +133,41 @@ jobs:
               assert has_ext, "Wheel missing compiled extension pyjags/console*"
           PY
 
-      # ---- Sanity import test: install wheel into fresh venv and import from a TEMP DIR
-      - name: Sanity import test (repaired wheel only)
+      # ---- Test the installed wheel like a user would (replaces "Sanity import test")
+      - name: Run tests against installed wheel (no repo shadowing)
         env:
-          PYTHONPATH: ""   # ensure repo root isn't implicitly on sys.path
+          PYTHONPATH: ""
         shell: bash {0}
         run: |
           set -euxo pipefail
-          python -m venv venv
-          source venv/bin/activate
-          # simulate a clean machine (no conda paths)
+          # fresh runtime venv outside conda/mamba
+          python -m venv venv_rt
+          source venv_rt/bin/activate
           unset CONDA_PREFIX CONDA_DEFAULT_ENV MAMBA_ROOT_PREFIX PKG_CONFIG_PATH DYLD_LIBRARY_PATH LD_LIBRARY_PATH
-          python -m pip install --upgrade pip
-          # prefer repaired wheels; fall back to dist if repair produced none
+          python -m pip install -U pip
+          python -m pip install pytest
+
+          # prefer repaired wheels; fall back to dist if none
           whl="$(ls wheelhouse/*.whl 2>/dev/null || true)"
           if [ -z "$whl" ]; then whl="$(ls dist/*.whl | head -n1)"; fi
           python -m pip install "$whl"
 
-          # >>> avoid importing from the repo checkout <<<
-          tmpdir="$(mktemp -d)"
-          cd "$tmpdir"
-
+          # prove where pyjags comes from
           python - <<'PY'
-          import os, importlib.util as iu, importlib
-          import pyjags
-          pkg_dir = os.path.dirname(pyjags.__file__)
-          print("pyjags package dir:", pkg_dir)
-          print("package files (truncated):", sorted(os.listdir(pkg_dir))[:20])
-          spec = iu.find_spec("pyjags.console")
-          print("console spec:", spec)
-          m = importlib.import_module("pyjags.console")
-          print("loaded:", m)
+          import os, importlib.util as iu, pyjags
+          print("pyjags FROM:", os.path.dirname(pyjags.__file__))
+          print("console spec:", iu.find_spec("pyjags.console"))
           PY
+
+          # run pytest from a temp dir containing only tests to avoid repo shadowing
+          tdir="$(mktemp -d)"
+          if [ -d tests ]; then
+            cp -a tests "$tdir"/
+          else
+            echo "No tests/ directory found"; ls -la; exit 1
+          fi
+          cd "$tdir"
+          python -m pytest -q
 
       - name: Upload artifacts (repaired wheels + sdist)
         uses: actions/upload-artifact@v4
