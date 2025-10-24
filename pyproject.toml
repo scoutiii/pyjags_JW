@@ -56,7 +56,7 @@ sdist.include = [
   "pyjags/console.cc",
   "LICENSE",
   "README*",
-  "test/*"
+  "tests/*"
 ]
 
 # (Optional) keep builds tidy; not required
