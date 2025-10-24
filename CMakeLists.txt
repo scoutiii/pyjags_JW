@@ -14,6 +14,22 @@ find_package(pybind11 CONFIG REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(JAGS REQUIRED jags)
 
+add_library(console MODULE pyjags/console.cc)
+target_include_directories(console PRIVATE ${JAGS_INCLUDE_DIRS})
+target_link_directories(console PRIVATE ${JAGS_LIBRARY_DIRS})
+target_link_libraries(console PRIVATE ${JAGS_LIBRARIES})
+
+# Good default rpaths inside wheels
+if(APPLE)
+  set_target_properties(console PROPERTIES
+    INSTALL_RPATH "@loader_path"
+    BUILD_WITH_INSTALL_RPATH ON)
+else()
+  set_target_properties(console PROPERTIES
+    INSTALL_RPATH "\$ORIGIN"
+    BUILD_WITH_INSTALL_RPATH ON)
+endif()
+
 # If you want a more robust fallback, you can add:
 # find_path(JAGS_INCLUDE_DIR jags/jags.h HINTS $ENV{JAGS_ROOT}/include)
 # find_library(JAGS_LIBRARY jags HINTS $ENV{JAGS_ROOT}/lib $ENV{JAGS_ROOT}/lib64)

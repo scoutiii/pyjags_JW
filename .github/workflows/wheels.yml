@@ -2,8 +2,8 @@ name: Wheels
 
 on:
   push:
-    tags:
-      - "v*.*.*"     # build on version tags, e.g., v0.1.0
+    branches: [ main, master ]
+  pull_request:
   workflow_dispatch:
 
 defaults:
