@@ -1,74 +1,71 @@
 cmake_minimum_required(VERSION 3.20)
 project(pyjags_console LANGUAGES CXX)
 
-# --- Python, NumPy, pybind11 ---
-# Development.Module gives us the Python extension suffix and link flags,
-# NumPy gives us the headers for array conversions (even if console.cc doesn’t need them now).
-find_package(Python REQUIRED COMPONENTS Interpreter Development.Module NumPy)
-find_package(pybind11 CONFIG REQUIRED)
+# --- Options & policies
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# --- JAGS via pkg-config ---
+# Built by scikit-build-core
+if(NOT DEFINED SKBUILD)
+  message(FATAL_ERROR "This project is intended to be built via scikit-build-core")
+endif()
+
+# --- Python, NumPy, pybind11
+find_package(Python REQUIRED COMPONENTS Interpreter Development.Module NumPy)
+find_package(pybind11 REQUIRED CONFIG)
+
+# --- Locate JAGS (prefer pkg-config for include/libs)
+# The install scripts ensure a usable jags.pc under $JAGS_PREFIX/lib/pkgconfig
 find_package(PkgConfig REQUIRED)
+if(DEFINED ENV{JAGS_PREFIX})
+  set(ENV{PKG_CONFIG_PATH} "$ENV{JAGS_PREFIX}/lib/pkgconfig:$ENV{PKG_CONFIG_PATH}")
+endif()
 pkg_check_modules(JAGS REQUIRED jags)
 
-# Source (explicit path makes sdists predictable)
+# JAGS include/lib hints (for backup find_library if needed)
+set(JAGS_INCLUDE_DIR ${JAGS_INCLUDEDIR})
+find_library(JAGS_LIB NAMES jags jags-4
+  HINTS ${JAGS_LIBDIR} ${JAGS_LIBRARY_DIRS}
+)
+
+if(NOT JAGS_LIB)
+  message(FATAL_ERROR "Could not find JAGS library")
+endif()
+
+# --- Sources
 set(CONSOLE_SRC "${PROJECT_SOURCE_DIR}/pyjags/console.cc")
 if(NOT EXISTS "${CONSOLE_SRC}")
   message(FATAL_ERROR "Expected source not found: ${CONSOLE_SRC}")
 endif()
 
-# Build the extension module
-add_library(console MODULE "${CONSOLE_SRC}")
-target_compile_features(console PRIVATE cxx_std_17)
+# --- Build extension module
+pybind11_add_module(console MODULE "${CONSOLE_SRC}")
+target_include_directories(console PRIVATE ${JAGS_INCLUDE_DIR})
+target_link_libraries(console PRIVATE ${JAGS_LIB})
 
-# Include + link paths
-target_include_directories(console PRIVATE
-  ${Python_INCLUDE_DIRS}
-  ${Python_NumPy_INCLUDE_DIRS}
-  ${JAGS_INCLUDE_DIRS}
-)
+# Ensure canonical extension name (no 'lib' prefix)
+set_target_properties(console PROPERTIES PREFIX "")
 
-# On some distros pkg-config provides link dirs separately
-if(JAGS_LIBRARY_DIRS)
-  target_link_directories(console PRIVATE ${JAGS_LIBRARY_DIRS})
-endif()
-
-# Link against pybind11 (module flavor), Python, and JAGS
-target_link_libraries(console PRIVATE
-  pybind11::module
-  ${Python_LIBRARIES}
-  ${JAGS_LIBRARIES}
-)
-
-# Ensure we get "console.<abi>.<plat>.so" (no "lib" prefix) and correct suffix
-set_target_properties(console PROPERTIES
-  PREFIX ""
-  SUFFIX "${Python_EXTENSION_SUFFIX}"
-)
-
-# Stricter linking on Linux to fail fast if something is missing
+# --- RPATH for bundled libs
 if(APPLE)
-  # Let undefined symbols resolve at runtime against Python on macOS
-  target_link_options(console PRIVATE "-Wl,-undefined,dynamic_lookup")
-else()
-  target_link_options(console PRIVATE "-Wl,--no-undefined")
-endif()
-
-# RPATH so the loader can find vendored libs placed by auditwheel/delocate
-# Linux uses $ORIGIN; macOS uses @loader_path
-if(APPLE)
+  # @loader_path is where the extension lives inside the wheel
   set_target_properties(console PROPERTIES
-    BUILD_RPATH "@loader_path"
+    MACOSX_RPATH ON
     INSTALL_RPATH "@loader_path"
+    BUILD_WITH_INSTALL_RPATH ON
   )
-else()
+elseif(UNIX)
+  # $ORIGIN is the extension’s dir; auditwheel will rewrite and bundle deps
   set_target_properties(console PROPERTIES
     BUILD_RPATH "\$ORIGIN"
     INSTALL_RPATH "\$ORIGIN"
   )
 endif()
 
-# Install into the pyjags/ package within the wheel
-install(TARGETS console
-  LIBRARY DESTINATION pyjags
-)
+# Be explicit about symbol visibility on *nix
+if(NOT MSVC)
+  target_compile_options(console PRIVATE -fvisibility=hidden)
+endif()
+
+# --- Install: scikit-build-core will infer this and place the .so in the package dir
+# Nothing else to install; the py package files are handled by sdist/wheel config.

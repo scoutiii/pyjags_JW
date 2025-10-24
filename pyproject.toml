@@ -1,103 +1,77 @@
 [build-system]
 requires = [
-  "scikit-build-core>=0.10",
-  "pybind11>=2.12",
+  "scikit-build-core>=0.10.0",
+  "pybind11[global]>=2.11.0",
   "packaging",
-  "setuptools",
-  "wheel",
-  "numpy>=2.0"
+  "numpy>=1.23",
+  # For sdist+wheel reproducibility
+  "setuptools_scm>=8",
 ]
 build-backend = "scikit_build_core.build"
 
 [project]
 name = "pyjags-jw"
-version = "0.1.2"
-description = "Python bindings for JAGS (fork, modernized build with scikit-build-core)"
+description = "Python interface to JAGS with wheels that bundle JAGS"
 readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "Scout Jarman" }]
 requires-python = ">=3.11"
-license = { text = "GPL-2.0-only" }
-authors = [{ name = "Scout Jarman", email = "scoutjarman@yahoo.com" }]
+dependencies = ["numpy>=1.23"]
+dynamic = ["version"]
 
-# (UPDATED) Align runtime NumPy with build-time if you import numpy at runtime.
-dependencies = [
-  "numpy>=2.0",
-  "arviz>=0.15",
-  "h5py>=3.8",
-  "pandas>=2.1",
-  "xarray>=2023.7.0",
-]
-
-classifiers = [
-  "Development Status :: 4 - Beta",
-  "Intended Audience :: Science/Research",
-  "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
-  "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
-  "Programming Language :: Python :: 3.13",
-  "Programming Language :: C++",
-  "Operating System :: POSIX :: Linux",
-  "Topic :: Scientific/Engineering",
-]
+[tool.setuptools_scm]
+fallback_version = "0.0.0"
 
 [project.urls]
-Homepage = "https://github.com/scoutiii/pyjags_JW"
-Issues = "https://github.com/scoutiii/pyjags_JW/issues"
+Homepage = "https://github.com/scoutiii/pyjags_JW/"
 
 [tool.scikit-build]
-wheel.packages = ["pyjags"]
-cmake.minimum-version = "3.20"
-
+# ensure we ship tests/docs in sdists (nice for reproducible testing)
 sdist.include = [
-  "CMakeLists.txt",
-  "pyproject.toml",
-  "pyjags/__init__.py",
-  "pyjags/*.py",
-  "pyjags/console.cc",
+  "pyjags/**",
+  "tests/**",
+  "doc/**",
+  "README.md",
   "LICENSE",
-  "README*",
-  "tests/*"
+  "CMakeLists.txt",
+  "ci/**",
+]
+# cmake min is also asserted inside CMakeLists
+cmake.minimum-version = "3.20"
+wheel.expand-macos-universal-tags = false
+
+[tool.scikit-build.cmake]
+args = [
+  "-DSKBUILD=ON",
+  "-DCMAKE_BUILD_TYPE=Release",
+  # On macOS, produce rpaths that resolve in wheel
+  "-DCMAKE_MACOSX_RPATH=ON",
 ]
 
-build-dir = "build/{wheel_tag}"
-logging.level = "INFO"
-
-# If you later need to pass CMake definitions, uncomment:
-# [tool.scikit-build.cmake.define]
-# CMAKE_CXX_STANDARD = "17"
-
-# ---------------------------
-# NEW: cibuildwheel config
-# ---------------------------
 [tool.cibuildwheel]
-# Build CPython 3.11–3.13 across platforms
-build = ["cp311-*", "cp312-*", "cp313-*"]
-
-# Run tests against the installed wheel
-test-requires = ["pytest"]
+build = "cp311-* cp312-* cp313-*"
+skip = "pp* *-win32 *-musllinux*"
+test-extras = ""
+test-requires = ["pytest", "numpy"]
 test-command = "pytest -q {project}/tests"
 
-# Architectures / policies
-macos.archs = ["universal2"]
-linux.archs = ["x86_64", "aarch64"]
-linux.manylinux-policy = "manylinux_2_28"   # or "manylinux_2_17_x86_64" if you need wider glibc
+# Build JAGS inside the build container/VM before building our wheel.
+# These run *inside* manylinux/macos build envs so we can capture libs.
+environment = { JAGS_VERSION = "4.3.2", JAGS_PREFIX = "{project}/.jags-prefix" }
 
+# Linux (manylinux) runs in container; compile JAGS there so auditwheel can bundle.
+before-build-linux = "bash ci/install_jags_linux.sh {project}"
+before-build-macos = "bash ci/install_jags_macos.sh {project}"
 
-# Provide common env to the build (CMake/find_package/pkg-config)
-environment = [
-  "PKG_CONFIG_PATH",
-  "CMAKE_PREFIX_PATH",
-  "CPPFLAGS",
-  "LDFLAGS"
-]
+# Ensure our build system can find JAGS via pkg-config and rpaths
+environment-pass = ["JAGS_PREFIX", "JAGS_VERSION"]
 
-# # Install JAGS inside each build environment
-# before-all-linux = "bash {project}/ci/install_jags_linux.sh"
-# before-all-macos = "bash {project}/ci/install_jags_macos.sh"
+# Enable repair step (auditwheel / delocate) – on by default in cibuildwheel
 
-# If you also add Windows later:
-# before-all-windows = "bash {project}/ci/install_jags_windows.sh"
+[tool.cibuildwheel.linux]
+manylinux-x86_64-image = "manylinux_2_28"
+# If you need glibc compatibility back to 2014ish, use manylinux2014; 2_28 is modern.
 
-[tool.cibuildwheel.macos.environment]
-CMAKE_OSX_ARCHITECTURES = "arm64;x86_64"
+[tool.cibuildwheel.macos]
+# macOS 11+ default; builds per-arch wheels on GitHub’s runners.
+
