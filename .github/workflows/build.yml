@@ -39,84 +39,79 @@ jobs:
             jags
             pkg-config
 
-      # <<< NEW: make sure build tools see the conda environment >>>
-      - name: Export build env hints (pkg-config/CMake/compilers)
+      # ---- sanity: verify JAGS is discoverable via pkg-config inside the env
+      - name: Check JAGS via pkg-config (sanity)
         shell: bash {0}
-        run: |
-          # Point pkg-config & CMake to the micromamba env
-          echo "PKG_CONFIG_PATH=${CONDA_PREFIX}/lib/pkgconfig" >> "$GITHUB_ENV"
-          echo "CMAKE_PREFIX_PATH=${CONDA_PREFIX}" >> "$GITHUB_ENV"
-
-          # Help the compiler & linker on macOS and Linux
-          echo "CPPFLAGS=-I${CONDA_PREFIX}/include ${CPPFLAGS}" >> "$GITHUB_ENV"
-          echo "CFLAGS=${CFLAGS} -O2" >> "$GITHUB_ENV"
-          echo "CXXFLAGS=${CXXFLAGS} -O2" >> "$GITHUB_ENV"
-          echo "LDFLAGS=-L${CONDA_PREFIX}/lib ${LDFLAGS}" >> "$GITHUB_ENV"
-
-          # On macOS the dynamic loader path matters during build
-          if [[ "$RUNNER_OS" == "macOS" ]]; then
-            echo "DYLD_LIBRARY_PATH=${CONDA_PREFIX}/lib:${DYLD_LIBRARY_PATH}" >> "$GITHUB_ENV"
-          fi
-
-          # Nice to see what env we actually passed
-          echo "Using CONDA_PREFIX=$CONDA_PREFIX"
-          echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
-          echo "CMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH"
-
-      - name: Build sdist + wheel (verbose)
-        shell: bash {0}
-        env:
-          PYTHONWARNINGS: default
-          CMAKE_VERBOSE_MAKEFILE: "ON"
         run: |
           set -euxo pipefail
-          python -m pip install -U pip build
-          python -m build
-          ls -l dist
-          # Fail immediately if no wheel was produced (catches macOS link failures)
-          test -n "$(ls dist/*.whl 2>/dev/null)" || { echo "No wheel built"; exit 1; }
+          micromamba run -n jags bash -lc '
+            which pkg-config
+            pkg-config --modversion jags
+            pkg-config --cflags --libs jags
+            echo "CONDA_PREFIX=$CONDA_PREFIX"
+          '
 
-      # --- Repair wheels so libjags is bundled ---
+      # ---- build sdist + wheel INSIDE the micromamba env
+      - name: Build sdist + wheel (inside env, verbose)
+        shell: bash {0}
+        run: |
+          set -euxo pipefail
+          micromamba run -n jags bash -lc '
+            # help CMake/pkg-config locate JAGS in this env
+            export PKG_CONFIG_PATH="$CONDA_PREFIX/lib/pkgconfig"
+            export CMAKE_PREFIX_PATH="$CONDA_PREFIX"
+            export CPPFLAGS="-I$CONDA_PREFIX/include ${CPPFLAGS:-}"
+            export LDFLAGS="-L$CONDA_PREFIX/lib ${LDFLAGS:-}"
+            python -m pip install -U pip build
+            python -m build
+            ls -l dist
+            test -n "$(ls dist/*.whl 2>/dev/null)" || { echo "No wheel built"; exit 1; }
+          '
 
+      # ---- Linux: repair wheels with auditwheel (still inside the env so libjags is visible)
       - name: Repair wheel (Linux)
         if: runner.os == 'Linux'
         shell: bash {0}
-        env:
-          # <-- ADD this so auditwheel can find libjags.so.4 in the conda env
-          LD_LIBRARY_PATH: "${{ env.CONDA_PREFIX }}/lib:${{ env.LD_LIBRARY_PATH }}"
         run: |
           set -euxo pipefail
-          python -m pip install -U auditwheel
-          for whl in dist/*.whl; do
-            auditwheel show "$whl" || true
-            auditwheel repair -w wheelhouse "$whl"
-          done
-          ls -l wheelhouse
+          micromamba run -n jags bash -lc '
+            python -m pip install -U auditwheel
+            for whl in dist/*.whl; do
+              auditwheel show "$whl" || true
+              auditwheel repair -w wheelhouse "$whl"
+            done
+            ls -l wheelhouse
+          '
 
+      # ---- macOS: delocate to vendor libjags.dylib into the wheel
       - name: Repair wheel (macOS)
         if: runner.os == 'macOS'
         shell: bash {0}
         run: |
           set -euxo pipefail
-          python -m pip install -U delocate
-          # Show current deps, then delocate into wheelhouse/
-          delocate-listdeps dist/*.whl || true
-          delocate-wheel -w wheelhouse dist/*.whl
-          delocate-listdeps wheelhouse/*.whl
+          micromamba run -n jags bash -lc '
+            python -m pip install -U delocate
+            delocate-listdeps dist/*.whl || true
+            delocate-wheel -w wheelhouse dist/*.whl
+            delocate-listdeps wheelhouse/*.whl
+          '
 
-      # --- Optional: prove self-contained import without conda on PATH ---
+      # ---- Optional: prove the wheel is self-contained outside conda
       - name: Sanity import test (repaired wheel only)
         shell: bash {0}
         run: |
           set -euxo pipefail
           python -m venv venv
           source venv/bin/activate
-          # Strip conda-related env to simulate a clean machine
+          # simulate a clean machine (no conda paths)
           unset CONDA_PREFIX CONDA_DEFAULT_ENV MAMBA_ROOT_PREFIX PKG_CONFIG_PATH DYLD_LIBRARY_PATH LD_LIBRARY_PATH
           python -m pip install --upgrade pip
-          python -m pip install wheelhouse/*.whl
+          # prefer repaired wheels; fall back to dist if repair produced none (shouldn't happen)
+          whl="$(ls wheelhouse/*.whl 2>/dev/null || true)"
+          if [ -z "$whl" ]; then whl="$(ls dist/*.whl | head -n1)"; fi
+          python -m pip install "$whl"
           python - <<'PY'
-          import sys, pyjags
+          import pyjags, sys
           print("OK import:", pyjags.__file__)
           PY
 
