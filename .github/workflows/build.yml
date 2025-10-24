@@ -1,4 +1,4 @@
-name: Build (sdist + wheel)
+name: Wheels (cibuildwheel) + sdist
 
 on:
   push:
@@ -8,218 +8,56 @@ on:
 
 jobs:
   build:
-    name: Build on ${{ matrix.os }} / Python ${{ matrix.python-version }}
+    name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-13]
-        python-version: ["3.11", "3.12", "3.13"]
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Python (host)
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
-          cache: "pip"
+          python-version: "3.12"
 
-      # Clean untracked files/dirs so no cached venvs land in the sdist
-      - name: Clean working tree (safety)
-        shell: bash
-        run: |
-          set -euxo pipefail
-          git clean -xdf
-
-      - name: Install JAGS (micromamba)
-        uses: mamba-org/setup-micromamba@v2
-        with:
-          environment-name: jags
-          condarc: |
-            channels:
-              - conda-forge
-              - defaults
-          create-args: >-
-            python=${{ matrix.python-version }}
-            jags
-            pkg-config
-
-      # ---- sanity: verify JAGS is discoverable via pkg-config inside the env
-      - name: Check JAGS via pkg-config (sanity)
-        shell: bash {0}
-        run: |
-          set -euxo pipefail
-          micromamba run -n jags bash -lc '
-            which pkg-config
-            pkg-config --modversion jags
-            pkg-config --cflags --libs jags
-            echo "CONDA_PREFIX=$CONDA_PREFIX"
-          '
-
-      # ---- build sdist + wheel INSIDE the micromamba env
-      - name: Build sdist + wheel (inside env, verbose)
-        shell: bash {0}
-        run: |
-          set -euxo pipefail
-          micromamba run -n jags bash -lc '
-            # help CMake/pkg-config locate JAGS in this env
-            export PKG_CONFIG_PATH="$CONDA_PREFIX/lib/pkgconfig"
-            export CMAKE_PREFIX_PATH="$CONDA_PREFIX"
-            export CPPFLAGS="-I$CONDA_PREFIX/include ${CPPFLAGS:-}"
-            export LDFLAGS="-L$CONDA_PREFIX/lib ${LDFLAGS:-}"
-            python -m pip install -U pip build
-            python -m build
-            ls -l dist
-            test -n "$(ls dist/*.whl 2>/dev/null)" || { echo "No wheel built"; exit 1; }
-          '
-
-      # ---- Linux: repair wheels with auditwheel (still inside the env so libjags is visible)
-      - name: Repair wheel (Linux)
+      # Enable aarch64 emulation for manylinux aarch64 builds
+      - name: Set up QEMU (Linux only, for aarch64 wheels)
         if: runner.os == 'Linux'
-        shell: bash {0}
-        run: |
-          set -euxo pipefail
-          micromamba run -n jags bash -lc '
-            export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:${LD_LIBRARY_PATH:-}"
-            python -m pip install -U auditwheel
-            for whl in dist/*.whl; do
-              echo "== auditwheel show =="
-              auditwheel show "$whl" || true
-              echo "== auditwheel repair =="
-              auditwheel repair -w wheelhouse "$whl"
-            done
-            ls -l wheelhouse || true
-          '
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
 
-      # ---- macOS: delocate to vendor libjags.dylib into the wheel
-      - name: Repair wheel (macOS)
-        if: runner.os == 'macOS'
-        shell: bash {0}
+      - name: Install build tooling
         run: |
-          set -euxo pipefail
-          micromamba run -n jags bash -lc '
-            export DYLD_LIBRARY_PATH="$CONDA_PREFIX/lib:${DYLD_LIBRARY_PATH:-}"
-            python -m pip install -U delocate
-            echo "== deps before =="
-            delocate-listdeps dist/*.whl || true
-            echo "== delocate =="
-            delocate-wheel --ignore-missing -w wheelhouse dist/*.whl
-            echo "== deps after =="
-            delocate-listdeps wheelhouse/*.whl || true
-          '
-      
-      - name: Inspect wheel contents (must contain pyjags/console*.so)
-        shell: bash {0}
-        run: |
-          set -euxo pipefail
-          WHL="$(ls wheelhouse/*.whl 2>/dev/null || ls dist/*.whl | head -n1)"
-          echo "Inspecting wheel: $WHL"
-          python - <<'PY'
-          import glob, zipfile
-          whl = sorted(glob.glob("wheelhouse/*.whl") or glob.glob("dist/*.whl"))[-1]
-          print("== WHEEL FILES ==")
-          with zipfile.ZipFile(whl) as z:
-              for p in sorted(z.namelist()):
-                  print(p)
-              has_ext = any(
-                  p.startswith("pyjags/") and
-                  p.split("/")[-1].startswith("console.") and
-                  p.split("/")[-1].endswith((".so",".dylib",".pyd"))
-                  for p in z.namelist()
-              )
-              print("has_ext:", has_ext)
-              assert has_ext, "Wheel missing compiled extension pyjags/console*"
-          PY
+          python -m pip install -U pip build cibuildwheel
 
-      # ---- Test the installed wheel like a user would (no repo shadowing; no test copying)
-      - name: Run tests against installed wheel (from temp dir)
+      # cibuildwheel will:
+      #  - run `before-all-linux/macos` from pyproject.toml (your JAGS installers)
+      #  - build/repair wheels for cp311, cp312, cp313
+      #  - run tests against the installed wheel (per pyproject's test-command)
+      - name: Build wheels with cibuildwheel
         env:
-          PYTHONPATH: ""   # keep repo off sys.path
-        shell: bash {0}
+          CIBW_BUILD: "cp311-* cp312-* cp313-*"
+          CIBW_SKIP: "pp* *musllinux*"     # adjust if you want musllinux/PyPy
         run: |
-          set -euxo pipefail
+          python -m cibuildwheel --output-dir wheelhouse
 
-          # 0) Resolve absolute paths to artifacts while still in repo.
-          #    IMPORTANT: on Linux/macOS, require a repaired wheel so native deps are vendored.
-          python - <<'PY' > /tmp/artifacts.txt
-          import glob, os, platform, sys
-          osname = platform.system()
-          wheel_candidates = []
-          if osname in ("Linux", "Darwin"):
-              wheel_candidates = glob.glob("wheelhouse/*.whl")
-              if not wheel_candidates:
-                  print("ERROR: No repaired wheel in wheelhouse/; refusing to use dist/ on", osname, file=sys.stderr)
-                  sys.exit(2)
-          else:
-              wheel_candidates = glob.glob("wheelhouse/*.whl") or glob.glob("dist/*.whl")
-          wheel = sorted(wheel_candidates)[-1]
-          sdist = sorted(glob.glob("dist/*.tar.gz"))[-1]
-          print(os.path.abspath(wheel))
-          print(os.path.abspath(sdist))
-          PY
-          read WHL SDIST < /tmp/artifacts.txt
+      - name: Build sdist
+        run: |
+          python -m build --sdist
+          ls -l dist
 
-          # 1) Enter a temp workspace FIRST (prevents repo shadowing)
-          TDIR="$(mktemp -d)"
-          cd "$TDIR"
+      - name: Show wheels
+        run: ls -l wheelhouse
 
-          # 2) Fresh runtime venv; simulate a normal user machine
-          python -m venv .venv_rt
-          source .venv_rt/bin/activate
-          unset CONDA_PREFIX CONDA_DEFAULT_ENV MAMBA_ROOT_PREFIX PKG_CONFIG_PATH DYLD_LIBRARY_PATH LD_LIBRARY_PATH
-          python -m pip install -U pip pytest
-          python -m pip install "$WHL"
-
-          # 3) Point pytest to tests/ by absolute path (no copying needed)
-          if [ -d "$GITHUB_WORKSPACE/tests" ]; then
-            TESTS_DIR="$GITHUB_WORKSPACE/tests"
-          else
-            # fallback: extract tests from sdist if not in repo (downstream builders)
-            mkdir sdist_src
-            tar -xzf "$SDIST" -C sdist_src
-            TESTS_DIR="$(find sdist_src -maxdepth 2 -type d -name tests | head -n1 || true)"
-          fi
-          test -n "$TESTS_DIR" && [ -d "$TESTS_DIR" ] || { echo "No tests/ found"; exit 1; }
-
-          # 4) Probe where we import from & show native deps status
-          python - <<'PY'
-          import os, sys, importlib, importlib.util as iu, pyjags
-          print("Python:", sys.version)
-          print("Platform:", sys.platform)
-          pkg_dir = os.path.dirname(pyjags.__file__)
-          print("pyjags FROM:", pkg_dir)
-          spec = iu.find_spec("pyjags.console")
-          print("console spec:", spec)
-          m = importlib.import_module("pyjags.console")
-          print("console __file__:", m.__file__)
-          for sub in (".libs",".dylibs"):
-              p = os.path.join(pkg_dir, sub)
-              print(sub, "exists:", os.path.isdir(p))
-              if os.path.isdir(p):
-                  print(sub, "contents:", sorted(os.listdir(p)))
-          PY
-
-          # 5) Low-level loader check (helps diagnose linker problems fast)
-          CONSOLE="$(python - <<'PY'
-          import importlib
-          m = importlib.import_module("pyjags.console")
-          print(m.__file__)
-          PY
-          )"
-          case "$(uname -s)" in
-            Linux)  echo "== LDD on console ==";  ldd "$CONSOLE" || true ;;
-            Darwin) echo "== OTOOL -L on console =="; otool -L "$CONSOLE" || true ;;
-          esac
-
-          # 6) Run the tests (from temp dir, collecting by absolute path)
-          python -m pytest -q --maxfail=1 -ra "$TESTS_DIR"
-
-      - name: Upload artifacts (repaired wheels + sdist)
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: dist-${{ matrix.os }}-py${{ matrix.python-version }}
+          name: wheels-${{ matrix.os }}
           path: |
             wheelhouse/*.whl
             dist/*.tar.gz

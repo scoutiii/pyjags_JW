@@ -2,23 +2,24 @@
 requires = [
   "scikit-build-core>=0.10",
   "pybind11>=2.12",
-  "numpy>=2.0",            # <-- add this
-  "packaging"
+  "packaging",
+  "setuptools",
+  "wheel"
 ]
 build-backend = "scikit_build_core.build"
 
 [project]
 name = "pyjags-jw"
-version = "0.1.1"
+version = "0.1.2"
 description = "Python bindings for JAGS (fork, modernized build with scikit-build-core)"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "GPL-2.0-only" }
 authors = [{ name = "Scout Jarman", email = "scoutjarman@yahoo.com" }]
 
-# Everything needed at runtime (no extras required)
+# (UPDATED) Align runtime NumPy with build-time if you import numpy at runtime.
 dependencies = [
-  "numpy>=1.23",
+  "numpy>=2.0",
   "arviz>=0.15",
   "h5py>=3.8",
   "pandas>=2.1",
@@ -44,10 +45,8 @@ Homepage = "https://github.com/scoutiii/pyjags_JW"
 Issues = "https://github.com/scoutiii/pyjags_JW/issues"
 
 [tool.scikit-build]
-# Include this Python package (the one you "import")
 wheel.packages = ["pyjags"]
 
-# Ensure C++ sources and build scripts are present when building from sdist
 sdist.include = [
   "CMakeLists.txt",
   "pyproject.toml",
@@ -59,17 +58,40 @@ sdist.include = [
   "tests/*"
 ]
 
-# (Optional) keep builds tidy; not required
 build-dir = "build/{wheel_tag}"
-
-# Keep logging informative but not noisy
 logging.level = "INFO"
 
-# If you ever need to pass CMake definitions, uncomment and tweak:
+# If you later need to pass CMake definitions, uncomment:
 # [tool.scikit-build.cmake.define]
 # CMAKE_CXX_STANDARD = "17"
-# PYJAGS_FORCE_SYSTEM_JAGS = "ON"  # (example flag—only if you add this in CMake)
 
-[tool.pytest.ini_options]
-addopts = "-q"
-testpaths = ["tests"]
+# ---------------------------
+# NEW: cibuildwheel config
+# ---------------------------
+[tool.cibuildwheel]
+# Build CPython 3.11–3.13 across platforms
+build = ["cp311-*", "cp312-*", "cp313-*"]
+
+# Run tests against the installed wheel
+test-requires = ["pytest"]
+test-command = "pytest -q {project}/tests"
+
+# Architectures / policies
+macos.archs = ["universal2"]
+linux.archs = ["x86_64", "aarch64"]
+linux.manylinux-policy = "manylinux_2_28"   # or "manylinux_2_17_x86_64" if you need wider glibc
+
+# Provide common env to the build (CMake/find_package/pkg-config)
+environment = [
+  "PKG_CONFIG_PATH",
+  "CMAKE_PREFIX_PATH",
+  "CPPFLAGS",
+  "LDFLAGS"
+]
+
+# Install JAGS inside each build environment
+before-all-linux = "bash {project}/ci/install_jags_linux.sh"
+before-all-macos = "bash {project}/ci/install_jags_macos.sh"
+
+# If you also add Windows later:
+# before-all-windows = "bash {project}/ci/install_jags_windows.sh"
