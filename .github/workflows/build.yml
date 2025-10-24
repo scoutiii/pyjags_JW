@@ -26,6 +26,13 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
 
+      # Clean untracked files/dirs so no cached venvs land in the sdist
+      - name: Clean working tree (safety)
+        shell: bash
+        run: |
+          set -euxo pipefail
+          git clean -xdf
+
       - name: Install JAGS (micromamba)
         uses: mamba-org/setup-micromamba@v2
         with:
@@ -83,7 +90,7 @@ jobs:
               echo "== auditwheel repair =="
               auditwheel repair -w wheelhouse "$whl"
             done
-            ls -l wheelhouse
+            ls -l wheelhouse || true
           '
 
       # ---- macOS: delocate to vendor libjags.dylib into the wheel
@@ -100,7 +107,7 @@ jobs:
             echo "== delocate =="
             delocate-wheel --ignore-missing -w wheelhouse dist/*.whl
             echo "== deps after =="
-            delocate-listdeps wheelhouse/*.whl
+            delocate-listdeps wheelhouse/*.whl || true
           '
       
       - name: Inspect wheel contents (must contain pyjags/console*.so)
@@ -110,7 +117,7 @@ jobs:
           WHL="$(ls wheelhouse/*.whl 2>/dev/null || ls dist/*.whl | head -n1)"
           echo "Inspecting wheel: $WHL"
           python - <<'PY'
-          import glob, zipfile, sys
+          import glob, zipfile
           whl = sorted(glob.glob("wheelhouse/*.whl") or glob.glob("dist/*.whl"))[-1]
           print("== WHEEL FILES ==")
           with zipfile.ZipFile(whl) as z:
@@ -126,10 +133,10 @@ jobs:
               assert has_ext, "Wheel missing compiled extension pyjags/console*"
           PY
 
-
-
-      # ---- Optional: prove the wheel is self-contained outside conda
+      # ---- Sanity import test: install wheel into fresh venv and import from a TEMP DIR
       - name: Sanity import test (repaired wheel only)
+        env:
+          PYTHONPATH: ""   # ensure repo root isn't implicitly on sys.path
         shell: bash {0}
         run: |
           set -euxo pipefail
@@ -138,15 +145,23 @@ jobs:
           # simulate a clean machine (no conda paths)
           unset CONDA_PREFIX CONDA_DEFAULT_ENV MAMBA_ROOT_PREFIX PKG_CONFIG_PATH DYLD_LIBRARY_PATH LD_LIBRARY_PATH
           python -m pip install --upgrade pip
-          # prefer repaired wheels; fall back to dist if repair produced none (shouldn't happen)
+          # prefer repaired wheels; fall back to dist if repair produced none
           whl="$(ls wheelhouse/*.whl 2>/dev/null || true)"
           if [ -z "$whl" ]; then whl="$(ls dist/*.whl | head -n1)"; fi
           python -m pip install "$whl"
+
+          # >>> avoid importing from the repo checkout <<<
+          tmpdir="$(mktemp -d)"
+          cd "$tmpdir"
+
           python - <<'PY'
-          import pyjags, os, sys
-          print("pyjags package dir:", os.path.dirname(pyjags.__file__))
-          print("package files:", sorted(os.listdir(os.path.dirname(pyjags.__file__))))
-          import importlib
+          import os, importlib.util as iu, importlib
+          import pyjags
+          pkg_dir = os.path.dirname(pyjags.__file__)
+          print("pyjags package dir:", pkg_dir)
+          print("package files (truncated):", sorted(os.listdir(pkg_dir))[:20])
+          spec = iu.find_spec("pyjags.console")
+          print("console spec:", spec)
           m = importlib.import_module("pyjags.console")
           print("loaded:", m)
           PY
