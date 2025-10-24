@@ -75,9 +75,12 @@ jobs:
         run: |
           set -euxo pipefail
           micromamba run -n jags bash -lc '
+            export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:${LD_LIBRARY_PATH:-}"
             python -m pip install -U auditwheel
             for whl in dist/*.whl; do
+              echo "== auditwheel show =="
               auditwheel show "$whl" || true
+              echo "== auditwheel repair =="
               auditwheel repair -w wheelhouse "$whl"
             done
             ls -l wheelhouse
@@ -90,11 +93,30 @@ jobs:
         run: |
           set -euxo pipefail
           micromamba run -n jags bash -lc '
+            export DYLD_LIBRARY_PATH="$CONDA_PREFIX/lib:${DYLD_LIBRARY_PATH:-}"
             python -m pip install -U delocate
+            echo "== deps before =="
             delocate-listdeps dist/*.whl || true
-            delocate-wheel -w wheelhouse dist/*.whl
+            echo "== delocate =="
+            delocate-wheel --ignore-missing -w wheelhouse dist/*.whl
+            echo "== deps after =="
             delocate-listdeps wheelhouse/*.whl
           '
+      
+      - name: Inspect wheel contents (should contain pyjags/console*.so)
+        shell: bash {0}
+        run: |
+          set -euxo pipefail
+          whl="$(ls wheelhouse/*.whl 2>/dev/null || ls dist/*.whl | head -n1)"
+          python - <<'PY'
+          import sys, zipfile, glob
+          whl = max(glob.glob("wheelhouse/*.whl") or glob.glob("dist/*.whl"))
+          with zipfile.ZipFile(whl) as z:
+              has_ext = any(p.startswith("pyjags/console") and p.endswith((".so",".dylib",".pyd")) for p in z.namelist())
+              print("Wheel:", whl, "has_ext:", has_ext)
+              assert has_ext, "Wheel missing compiled extension pyjags/console*"
+          PY
+
 
       # ---- Optional: prove the wheel is self-contained outside conda
       - name: Sanity import test (repaired wheel only)
