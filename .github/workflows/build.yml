@@ -24,8 +24,8 @@ jobs:
         with:
           python-version: "3.12"
 
-      # Enable aarch64 emulation for manylinux aarch64 builds
-      - name: Set up QEMU (Linux only, for aarch64 wheels)
+      # Enable aarch64 emulation so cibuildwheel can build manylinux aarch64
+      - name: Set up QEMU (Linux only)
         if: runner.os == 'Linux'
         uses: docker/setup-qemu-action@v3
         with:
@@ -35,14 +35,36 @@ jobs:
         run: |
           python -m pip install -U pip build cibuildwheel
 
-      # cibuildwheel will:
-      #  - run `before-all-linux/macos` from pyproject.toml (your JAGS installers)
-      #  - build/repair wheels for cp311, cp312, cp313
-      #  - run tests against the installed wheel (per pyproject's test-command)
       - name: Build wheels with cibuildwheel
         env:
+          # Python versions / variants
           CIBW_BUILD: "cp311-* cp312-* cp313-*"
-          CIBW_SKIP: "pp* *musllinux*"     # adjust if you want musllinux/PyPy
+          CIBW_SKIP: "pp* *musllinux*"   # adjust if you want PyPy/musllinux too
+
+          # Target architectures
+          CIBW_ARCHS_LINUX: "x86_64 aarch64"
+          CIBW_ARCHS_MACOS: "universal2"
+
+          # Install JAGS inside each build env
+          CIBW_BEFORE_ALL_LINUX: "bash {project}/ci/install_jags_linux.sh"
+          CIBW_BEFORE_ALL_MACOS: "bash {project}/ci/install_jags_macos.sh"
+
+          # Make JAGS discoverable during the build
+          # Linux: we install to /opt/jags in the installer script.
+          CIBW_ENVIRONMENT_LINUX: >-
+            PKG_CONFIG_PATH=/opt/jags/lib/pkgconfig
+            CPPFLAGS='-I/opt/jags/include'
+            LDFLAGS='-L/opt/jags/lib'
+
+          # macOS: support both Intel (/usr/local) and Apple Silicon (/opt/homebrew) brew prefixes.
+          # Also ensure CMake honors universal2.
+          CIBW_ENVIRONMENT_MACOS: >-
+            PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/opt/homebrew/lib/pkgconfig
+            CMAKE_OSX_ARCHITECTURES='arm64;x86_64'
+
+          # If you prefer a stricter manylinux policy, uncomment one of these:
+          # CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
+          # CIBW_MANYLINUX_AARCH64_IMAGE: manylinux_2_28
         run: |
           python -m cibuildwheel --output-dir wheelhouse
 
