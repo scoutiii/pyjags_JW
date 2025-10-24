@@ -92,9 +92,9 @@ environment = [
   "LDFLAGS"
 ]
 
-# Install JAGS inside each build environment
-before-all-linux = "bash {project}/ci/install_jags_linux.sh"
-before-all-macos = "bash {project}/ci/install_jags_macos.sh"
+# # Install JAGS inside each build environment
+# before-all-linux = "bash {project}/ci/install_jags_linux.sh"
+# before-all-macos = "bash {project}/ci/install_jags_macos.sh"
 
 # If you also add Windows later:
 # before-all-windows = "bash {project}/ci/install_jags_windows.sh"

@@ -24,7 +24,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      # Enable aarch64 emulation so cibuildwheel can build manylinux aarch64
+      # Enable aarch64 emulation for manylinux aarch64 builds
       - name: Set up QEMU (Linux only)
         if: runner.os == 'Linux'
         uses: docker/setup-qemu-action@v3
@@ -39,30 +39,46 @@ jobs:
         env:
           # Python versions / variants
           CIBW_BUILD: "cp311-* cp312-* cp313-*"
-          CIBW_SKIP: "pp* *musllinux*"   # adjust if you want PyPy/musllinux too
+          CIBW_SKIP: "pp* *musllinux*"   # add/remove as needed
 
           # Target architectures
           CIBW_ARCHS_LINUX: "x86_64 aarch64"
           CIBW_ARCHS_MACOS: "universal2"
 
-          # Install JAGS inside each build env
-          CIBW_BEFORE_ALL_LINUX: "bash {project}/ci/install_jags_linux.sh"
-          CIBW_BEFORE_ALL_MACOS: "bash {project}/ci/install_jags_macos.sh"
+          # --- Build JAGS before each wheel build (inside the build env) ---
+          # Linux: build JAGS from source into /opt/jags
+          CIBW_BEFORE_BUILD_LINUX: >
+            bash -euxc "
+            WORK=/tmp/jagsbuild;
+            mkdir -p $WORK && cd $WORK;
+            curl -Ls -o jags.tar.gz https://sourceforge.net/projects/mcmc-jags/files/JAGS/latest/download;
+            tar -xf jags.tar.gz;
+            cd JAGS-*;
+            ./configure --prefix=/opt/jags --disable-static;
+            make -j$(nproc);
+            make install;
+            "
 
-          # Make JAGS discoverable during the build
-          # Linux: we install to /opt/jags in the installer script.
-          CIBW_ENVIRONMENT_LINUX: >-
+          # macOS: install JAGS via Homebrew on host (cibuildwheel macOS builds on host)
+          CIBW_BEFORE_BUILD_MACOS: >
+            bash -euxc "
+            brew update;
+            brew install jags pkg-config || true;
+            "
+
+          # --- Make JAGS discoverable during the C/C++ build ---
+          # Linux: point pkg-config & compiler to /opt/jags
+          CIBW_ENVIRONMENT_LINUX: >
             PKG_CONFIG_PATH=/opt/jags/lib/pkgconfig
             CPPFLAGS='-I/opt/jags/include'
             LDFLAGS='-L/opt/jags/lib'
 
-          # macOS: support both Intel (/usr/local) and Apple Silicon (/opt/homebrew) brew prefixes.
-          # Also ensure CMake honors universal2.
-          CIBW_ENVIRONMENT_MACOS: >-
+          # macOS: support both Intel (/usr/local) and Apple Silicon (/opt/homebrew); ensure universal2
+          CIBW_ENVIRONMENT_MACOS: >
             PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/opt/homebrew/lib/pkgconfig
             CMAKE_OSX_ARCHITECTURES='arm64;x86_64'
 
-          # If you prefer a stricter manylinux policy, uncomment one of these:
+          # If you want stricter policies, uncomment (matching your manylinux baseline):
           # CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
           # CIBW_MANYLINUX_AARCH64_IMAGE: manylinux_2_28
         run: |
