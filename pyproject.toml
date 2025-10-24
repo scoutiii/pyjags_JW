@@ -1,32 +1,43 @@
 [build-system]
 requires = [
-  "setuptools>=70",
-  "wheel",
+  "scikit-build-core>=0.10",
   "pybind11>=2.11",
-  "oldest-supported-numpy",
+  "numpy>=1.23",
 ]
-build-backend = "setuptools.build_meta"
+build-backend = "scikit_build_core.build"
 
 [project]
-name = "pyjags_JW"
+name = "pyjags-jw"
 version = "0.1.0"
-description = "Python interface to JAGS (updated for Python 3.11+, JW=Just Works)"
+description = "Python bindings for JAGS (fork, modernized build with scikit-build-core)"
 readme = "README.md"
-requires-python = ">=3.10"
-license = {text = "GPL-2.0-or-later"}
-authors = [{name="Scout Jarman"}]
+requires-python = ">=3.11"
+license = { text = "GPL-2.0-only" }
+authors = [{ name = "Scout Jarman", email = "scoutjarman@yahoo.com" }]
+
+# Runtime deps (adjust as you like)
 dependencies = [
-  # core runtime deps only; deepdish becomes optional
+  "numpy>=1.23",           # runtime, not just build
+  "arviz>=0.15",
+  "deepdish==0.3.7",       # if you keep deepdish I/O helpers
+  "pandas>=2.1",
   "xarray>=2023.7.0",
-  "arviz>=0.16",
 ]
-optional-dependencies = { io = ["deepdish>=0.3.7"] }
 
-[tool.setuptools]
-packages = ["pyjags"]
+[project.urls]
+Homepage = "https://github.com/scoutiii/pyjags_JW"
+Issues = "https://github.com/scoutiii/pyjags_JW/issues"
 
-[tool.setuptools.package-data]
-pyjags = ["*.py"]
+[tool.scikit-build]
+# Put your pure-Python package into the wheel
+wheel.packages = ["pyjags"]
+# If your source tree has extra files you want in sdist, uncomment:
+# sdist.include = ["pyjags/console.cc", "README.md", "LICENSE"]
 
-[tool.setuptools.ext_modules]
-# empty; defined dynamically in setup.cfg or setup.py
+# Optional: reduce noisy CMake output
+logging.level = "INFO"
+
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["test"]
