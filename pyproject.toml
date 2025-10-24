@@ -45,19 +45,17 @@ Homepage = "https://github.com/scoutiii/pyjags_JW"
 Issues = "https://github.com/scoutiii/pyjags_JW/issues"
 
 [tool.scikit-build]
-# Ship the pure-Python package directory inside the wheel
 wheel.packages = ["pyjags"]
 
-# Include extra sources in the sdist (wheel is built from CMake)
+# Make sure C++ sources and CMake files land in the sdist
 sdist.include = [
   "CMakeLists.txt",
+  "pyproject.toml",
+  "pyjags/console.cc",
+  "pyjags/__init__.py",
+  "pyjags/*.py",
   "LICENSE",
-  "README.md",
-  "pybind11/**",
-  "pyjags/**",
-  "test/**",
-  "notebooks/**",
-  "doc/**",
+  "README.*"
 ]
 
 # Keep logging informative but not noisy

@@ -41,7 +41,7 @@ jobs:
 
       # <<< NEW: make sure build tools see the conda environment >>>
       - name: Export build env hints (pkg-config/CMake/compilers)
-        shell: bash -l {0}
+        shell: bash {0}
         run: |
           # Point pkg-config & CMake to the micromamba env
           echo "PKG_CONFIG_PATH=${CONDA_PREFIX}/lib/pkgconfig" >> "$GITHUB_ENV"
@@ -64,7 +64,7 @@ jobs:
           echo "CMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH"
 
       - name: Build sdist + wheel (verbose)
-        shell: bash -l {0}
+        shell: bash {0}
         env:
           PYTHONWARNINGS: default
           CMAKE_VERBOSE_MAKEFILE: "ON"
@@ -80,7 +80,10 @@ jobs:
 
       - name: Repair wheel (Linux)
         if: runner.os == 'Linux'
-        shell: bash -l {0}
+        shell: bash {0}
+        env:
+          # <-- ADD this so auditwheel can find libjags.so.4 in the conda env
+          LD_LIBRARY_PATH: "${{ env.CONDA_PREFIX }}/lib:${{ env.LD_LIBRARY_PATH }}"
         run: |
           set -euxo pipefail
           python -m pip install -U auditwheel
@@ -92,7 +95,7 @@ jobs:
 
       - name: Repair wheel (macOS)
         if: runner.os == 'macOS'
-        shell: bash -l {0}
+        shell: bash {0}
         run: |
           set -euxo pipefail
           python -m pip install -U delocate
@@ -103,7 +106,7 @@ jobs:
 
       # --- Optional: prove self-contained import without conda on PATH ---
       - name: Sanity import test (repaired wheel only)
-        shell: bash -l {0}
+        shell: bash {0}
         run: |
           set -euxo pipefail
           python -m venv venv

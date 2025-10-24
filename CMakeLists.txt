@@ -1,85 +1,64 @@
+# CMakeLists.txt
 cmake_minimum_required(VERSION 3.20)
 project(pyjags_console LANGUAGES CXX)
 
-# --- Python & NumPy (headers) ---
-# scikit-build-core wires CMake's FindPython.
-find_package(Python 3.11 COMPONENTS Interpreter Development.Module NumPy REQUIRED)
+# Python & NumPy
+find_package(Python COMPONENTS Interpreter Development.Module NumPy REQUIRED)
 
-# --- pybind11 (provided by pip pybind11 wheel) ---
-# Using CONFIG allows CMake to find pybind11's CMake package from the pip install.
+# pybind11
 find_package(pybind11 CONFIG REQUIRED)
 
-# --- JAGS detection ---
-# Prefer pkg-config for system JAGS; fallback to manual hints if needed.
+# JAGS via pkg-config
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(JAGS REQUIRED jags)
 
-add_library(console MODULE pyjags/console.cc)
-target_include_directories(console PRIVATE ${JAGS_INCLUDE_DIRS})
-target_link_directories(console PRIVATE ${JAGS_LIBRARY_DIRS})
-target_link_libraries(console PRIVATE ${JAGS_LIBRARIES})
-
-# Good default rpaths inside wheels
-if(APPLE)
-  set_target_properties(console PROPERTIES
-    INSTALL_RPATH "@loader_path"
-    BUILD_WITH_INSTALL_RPATH ON)
-else()
-  set_target_properties(console PROPERTIES
-    INSTALL_RPATH "\$ORIGIN"
-    BUILD_WITH_INSTALL_RPATH ON)
+# Ensure the source exists (helps when building from an sdist)
+set(CONSOLE_SRC "${PROJECT_SOURCE_DIR}/pyjags/console.cc")
+if(NOT EXISTS "${CONSOLE_SRC}")
+  message(FATAL_ERROR "Expected source not found: ${CONSOLE_SRC}")
 endif()
 
-# If you want a more robust fallback, you can add:
-# find_path(JAGS_INCLUDE_DIR jags/jags.h HINTS $ENV{JAGS_ROOT}/include)
-# find_library(JAGS_LIBRARY jags HINTS $ENV{JAGS_ROOT}/lib $ENV{JAGS_ROOT}/lib64)
-# and then use those if pkg-config isn't found. For now, pkg-config is required.
-
-# --- Target: the extension module ---
-# NOTE: Use the *filename* "console" (no dots). We'll install it under pyjags/ so it imports as pyjags.console
+# Extension target (absolute path avoids CWD surprises)
 pybind11_add_module(console MODULE
-    pyjags/console.cc
+  "${CONSOLE_SRC}"
 )
 
 # C++ standard & warnings
 target_compile_features(console PRIVATE cxx_std_14)
 if (MSVC)
-    target_compile_options(console PRIVATE /W3)
+  target_compile_options(console PRIVATE /W3)
 else()
-    target_compile_options(console PRIVATE -Wall -Wextra -Wno-deprecated-declarations)
+  target_compile_options(console PRIVATE -Wall -Wextra -Wno-deprecated-declarations)
 endif()
 
 # Include dirs & link to JAGS
 target_include_directories(console PRIVATE
-    ${JAGS_INCLUDE_DIRS}
-    ${Python_NumPy_INCLUDE_DIRS}
+  ${JAGS_INCLUDE_DIRS}
+  ${Python_NumPy_INCLUDE_DIRS}
 )
 
-target_link_libraries(console PRIVATE
-    pybind11::module
-    ${JAGS_LIBRARIES}
-)
-
-# If JAGS needs extra link flags from pkg-config:
+# If pkg-config reported extra -L/-Wl flags, honor them
 target_link_options(console PRIVATE ${JAGS_LDFLAGS_OTHER})
 
-# Define the JAGS version macro if your C++ uses it
-target_compile_definitions(console PRIVATE PYJAGS_JAGS_VERSION="4.3.2")
+target_link_libraries(console PRIVATE
+  pybind11::module
+  ${JAGS_LIBRARIES}
+)
 
-# On Linux, don't bake in rpaths to conda libstdc++; let system libstdc++ resolve.
+# RPATH inside wheels
 if(APPLE)
-  # Adjust if you need custom rpaths on macOS
   set_target_properties(console PROPERTIES
     INSTALL_RPATH "@loader_path"
+    BUILD_WITH_INSTALL_RPATH ON
   )
-elseif(UNIX)
+else()
   set_target_properties(console PROPERTIES
-    INSTALL_RPATH "$ORIGIN"
+    INSTALL_RPATH "\$ORIGIN"
+    BUILD_WITH_INSTALL_RPATH ON
   )
 endif()
 
-# --- Install: place the extension **inside** the pyjags package ---
-# This makes the wheel contain pyjags/console*.so so you can "import pyjags.console"
+# Install the extension inside the Python package
 install(TARGETS console
   LIBRARY DESTINATION pyjags
   ARCHIVE DESTINATION pyjags
