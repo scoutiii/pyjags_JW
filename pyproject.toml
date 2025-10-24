@@ -72,4 +72,4 @@ logging.level = "INFO"
 
 [tool.pytest.ini_options]
 addopts = "-q"
-testpaths = ["test"]
+testpaths = ["tests"]
