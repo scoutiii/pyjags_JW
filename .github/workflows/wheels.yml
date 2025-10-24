@@ -1,46 +1,40 @@
-name: wheels
+name: Wheels
+
 on:
   push:
-    tags: ["v*"]
-  pull_request:
+    tags:
+      - "v*.*.*"   # build on version tags, e.g., v0.1.0
+  workflow_dispatch:
 
 jobs:
-  build:
+  build_wheels:
+    name: Build wheels (${{ matrix.os }}, py${{ matrix.python }})
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-13, macos-14]
-        python: ["cp310", "cp311", "cp312", "cp313", "cp314"]
+        os: [ubuntu-latest, macos-13]  # intel mac runner; add macos-14 for arm64 if you want
+        python: ["3.11", "3.12", "3.13"]
+
     steps:
       - uses: actions/checkout@v4
-      - uses: pypa/cibuildwheel@v2.21
-        env:
-          CIBW_BUILD: ${{ matrix.python}}-*
-          CIBW_ARCHS_MACOS: "x86_64 arm64"
-          CIBW_SKIP: "pp* *-musllinux*"
-          CIBW_ENVIRONMENT: >
-            PIP_ONLY_BINARY=:all:
-          CIBW_BEFORE_ALL_LINUX: |
-            yum install -y pkgconfig  # pkg-config present
-            # We DO NOT install JAGS here; wheel will link against external libjags.
-          CIBW_REPAIR_WHEEL_COMMAND_LINUX: >
-            auditwheel repair -w {dest_dir} --exclude libjags.so.* {wheel}
-          CIBW_REPAIR_WHEEL_COMMAND_MACOS: >
-            delocate-listdeps {wheel} && delocate-wheel -w {dest_dir} {wheel}
-      - uses: actions/upload-artifact@v4
-        with:
-          name: wheels
-          path: wheelhouse/*.whl
 
-  publish:
-    needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with: { python-version: ${{ matrix.python }} }
+
+      - name: Install build tooling
+        run: |
+          python -m pip install -U pip
+          python -m pip install build twine
+
+      - name: Build sdist + wheel
+        run: python -m build  # scikit-build-core will drive CMake
+
+      - name: Show artifacts
+        run: ls -lh dist/
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
         with:
-          name: wheels
-          path: dist
-      - uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
+          name: wheels-${{ matrix.os }}-py${{ matrix.python }}
+          path: dist/*

@@ -1,55 +1,35 @@
-# Copyright (C) 2015-2016 Tomasz Miasko
-#               2020 Michael Nowotny
-#               2025 Scout Jarman and contributors
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License version 2 as
-# published by the Free Software Foundation.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-
-"""
-I/O utilities for saving and loading JAGS sample dictionaries.
-
-This module uses `deepdish` (a thin HDF5 wrapper around PyTables)
-to persist model sample dictionaries.  If `deepdish` is not installed,
-an ImportError will be raised with instructions to install it via:
-
-    pip install pyjags-next[io]
-
-or manually:
-
-    pip install deepdish
-"""
+# GPLv2+
 
 from __future__ import annotations
-
 import typing as tp
 import numpy as np
-
-# Attempt to import deepdish only when available.
-try:
-    import deepdish as dd
-    _HAS_DEEPDISH = True
-except Exception as _err:
-    dd = None
-    _HAS_DEEPDISH = False
-    _DEEPDISH_IMPORT_ERROR = _err
+import h5py
 
 
-def _require_deepdish() -> None:
-    """Raise a friendly ImportError if deepdish is missing."""
-    if not _HAS_DEEPDISH:
-        raise ImportError(
-            "The optional dependency 'deepdish' is not installed.\n"
-            "Install it with one of the following commands:\n"
-            "    pip install pyjags-next[io]\n"
-            "or: pip install deepdish\n\n"
-            f"Original import error: {_DEEPDISH_IMPORT_ERROR}"
-        )
+def _save_array(grp: "h5py.Group", name: str, arr: np.ndarray, compression: bool) -> None:
+    """Save ndarray or masked array into the HDF5 group."""
+    if np.ma.isMaskedArray(arr):
+        sub = grp.create_group(name)
+        sub.attrs["__masked__"] = True
+        sub.create_dataset("data", data=np.asarray(arr.data),
+                           compression=("gzip" if compression else None))
+        sub.create_dataset("mask", data=np.asarray(arr.mask, dtype=bool),
+                           compression=("gzip" if compression else None))
+    else:
+        grp.create_dataset(name, data=np.asarray(arr),
+                           compression=("gzip" if compression else None))
+
+
+def _load_array(obj: "h5py.Group | h5py.Dataset") -> np.ndarray:
+    """Load ndarray (or masked array if stored as a group)."""
+    if isinstance(obj, h5py.Group) and obj.attrs.get("__masked__", False):
+        data = np.array(obj["data"])
+        mask = np.array(obj["mask"], dtype=bool)
+        return np.ma.MaskedArray(data=data, mask=mask)
+    elif isinstance(obj, h5py.Dataset):
+        return np.array(obj)
+    else:
+        raise TypeError(f"Unsupported HDF5 object type: {type(obj)!r}")
 
 
 def save_samples_dictionary_to_file(
@@ -57,42 +37,17 @@ def save_samples_dictionary_to_file(
     samples: tp.Dict[str, np.ndarray],
     compression: bool = True,
 ) -> None:
-    """
-    Save a dictionary of samples to an HDF5 file.
-
-    Parameters
-    ----------
-    filename : str
-        Path where the HDF5 file should be saved.
-    samples : dict[str, np.ndarray]
-        Mapping variable names -> Numpy arrays with shape
-        (parameter_dimension, chain_length, number_of_chains).
-    compression : bool, default=True
-        Whether to use data compression (Blosc).
-    """
-    _require_deepdish()
-
-    # Deepdish will handle ndarray dtypes automatically.
-    if compression:
-        dd.io.save(filename, samples, compression="blosc")
-    else:
-        dd.io.save(filename, samples, compression=None)
+    """Save a dict[str, ndarray] to HDF5."""
+    with h5py.File(filename, mode="w") as h5:
+        h5.attrs["__format__"] = "pyjags-jw:samples:1"
+        for name, arr in samples.items():
+            _save_array(h5, name, arr, compression=compression)
 
 
 def load_samples_dictionary_from_file(filename: str) -> tp.Dict[str, np.ndarray]:
-    """
-    Load a dictionary of samples from an HDF5 file.
-
-    Parameters
-    ----------
-    filename : str
-        Path to the HDF5 file.
-
-    Returns
-    -------
-    dict[str, np.ndarray]
-        Mapping variable names -> Numpy arrays with shape
-        (parameter_dimension, chain_length, number_of_chains).
-    """
-    _require_deepdish()
-    return dd.io.load(filename)
+    """Load a dict[str, ndarray] from HDF5."""
+    out: dict[str, np.ndarray] = {}
+    with h5py.File(filename, mode="r") as h5:
+        for name, obj in h5.items():
+            out[name] = _load_array(obj)  # type: ignore[arg-type]
+    return out

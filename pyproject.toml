@@ -1,6 +1,8 @@
 [build-system]
 requires = [
   "scikit-build-core>=0.10",
+  "cmake>=3.24",
+  "ninja>=1.10",
   "pybind11>=2.11",
   "numpy>=1.23",
 ]
@@ -8,20 +10,34 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "pyjags-jw"
-version = "0.1.0"
+version = "0.1.1"
 description = "Python bindings for JAGS (fork, modernized build with scikit-build-core)"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "GPL-2.0-only" }
 authors = [{ name = "Scout Jarman", email = "scoutjarman@yahoo.com" }]
 
-# Runtime deps (adjust as you like)
+# Everything needed at runtime (no extras required)
 dependencies = [
-  "numpy>=1.23",           # runtime, not just build
+  "numpy>=1.23",
   "arviz>=0.15",
-  "deepdish==0.3.7",       # if you keep deepdish I/O helpers
+  "h5py>=3.8",
   "pandas>=2.1",
   "xarray>=2023.7.0",
+]
+
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: C++",
+  "Operating System :: POSIX :: Linux",
+  "Topic :: Scientific/Engineering",
 ]
 
 [project.urls]
@@ -29,14 +45,28 @@ Homepage = "https://github.com/scoutiii/pyjags_JW"
 Issues = "https://github.com/scoutiii/pyjags_JW/issues"
 
 [tool.scikit-build]
-# Put your pure-Python package into the wheel
+# Ship the pure-Python package directory inside the wheel
 wheel.packages = ["pyjags"]
-# If your source tree has extra files you want in sdist, uncomment:
-# sdist.include = ["pyjags/console.cc", "README.md", "LICENSE"]
 
-# Optional: reduce noisy CMake output
+# Include extra sources in the sdist (wheel is built from CMake)
+sdist.include = [
+  "CMakeLists.txt",
+  "LICENSE",
+  "README.md",
+  "pybind11/**",
+  "pyjags/**",
+  "test/**",
+  "notebooks/**",
+  "doc/**",
+]
+
+# Keep logging informative but not noisy
 logging.level = "INFO"
 
+# If you ever need to pass CMake definitions, uncomment and tweak:
+# [tool.scikit-build.cmake.define]
+# CMAKE_CXX_STANDARD = "17"
+# PYJAGS_FORCE_SYSTEM_JAGS = "ON"  # (example flag—only if you add this in CMake)
 
 [tool.pytest.ini_options]
 addopts = "-q"
