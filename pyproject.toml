@@ -3,14 +3,15 @@ requires = [
   "scikit-build-core>=0.10",
   "pybind11>=2.12",
   "numpy>=2.0",            # <-- add this
-  "packaging"
+  "packaging",
+  "ninja"
 ]
 build-backend = "scikit_build_core.build"
 
 [project]
 name = "pyjags-jw"
 version = "0.1.1"
-description = "Python bindings for JAGS (fork, modernized build with scikit-build-core)"
+description = "Python bindings for JAGS (modernized build so that everything 'just works' (JW))."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "GPL-2.0-only" }
@@ -55,7 +56,9 @@ sdist.include = [
   "pyjags/*.py",
   "pyjags/console.cc",
   "LICENSE",
-  "README*"
+  "README*",
+  "test/*.py",
+  "test/models.jags"
 ]
 
 # (Optional) keep builds tidy; not required
@@ -64,10 +67,8 @@ build-dir = "build/{wheel_tag}"
 # Keep logging informative but not noisy
 logging.level = "INFO"
 
-# If you ever need to pass CMake definitions, uncomment and tweak:
-# [tool.scikit-build.cmake.define]
-# CMAKE_CXX_STANDARD = "17"
-# PYJAGS_FORCE_SYSTEM_JAGS = "ON"  # (example flag—only if you add this in CMake)
+[tool.scikit-build.cmake.define]
+PYJAGS_VENDOR_JAGS = true
 
 [tool.pytest.ini_options]
 addopts = "-q"
