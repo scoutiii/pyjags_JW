@@ -140,16 +140,89 @@ install(TARGETS console
 if(PYJAGS_VENDOR_JAGS AND JAGS_RUNTIME_LIBDIR)
   set(_vendor_lib_dest "pyjags/_vendor/jags/lib")
   if(WIN32)
-    file(GLOB JAGS_RUNTIME_LIBS CONFIGURE_DEPENDS "${JAGS_RUNTIME_LIBDIR}/jags*.dll")
+    set(_jags_lib_pattern "${JAGS_RUNTIME_LIBDIR}/jags*.dll")
   elseif(APPLE)
-    file(GLOB JAGS_RUNTIME_LIBS CONFIGURE_DEPENDS "${JAGS_RUNTIME_LIBDIR}/libjags*.dylib")
+    set(_jags_lib_pattern "${JAGS_RUNTIME_LIBDIR}/libjags*.dylib")
   else()
-    file(GLOB JAGS_RUNTIME_LIBS CONFIGURE_DEPENDS "${JAGS_RUNTIME_LIBDIR}/libjags*.so*")
+    set(_jags_lib_pattern "${JAGS_RUNTIME_LIBDIR}/libjags*.so")
   endif()
+  file(GLOB JAGS_RUNTIME_LIBS CONFIGURE_DEPENDS "${_jags_lib_pattern}")
   if(NOT JAGS_RUNTIME_LIBS)
-    message(FATAL_ERROR "Unable to locate JAGS libraries under ${JAGS_RUNTIME_LIBDIR}")
+    message(FATAL_ERROR "Unable to locate JAGS libraries under ${_jags_lib_pattern}")
   endif()
   install(FILES ${JAGS_RUNTIME_LIBS} DESTINATION "${_vendor_lib_dest}")
+
+  if(NOT WIN32 AND NOT APPLE)
+    set(_toolchain_vendor_libs "")
+
+    if(CMAKE_CXX_COMPILER AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+      execute_process(
+        COMMAND ${CMAKE_CXX_COMPILER} "-print-file-name=libstdc++.so.6"
+        OUTPUT_VARIABLE _stdcxx_path
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+      )
+      if(_stdcxx_path AND EXISTS "${_stdcxx_path}" AND NOT IS_DIRECTORY "${_stdcxx_path}")
+        get_filename_component(_stdcxx_dir "${_stdcxx_path}" DIRECTORY)
+        file(GLOB _stdcxx_variants CONFIGURE_DEPENDS "${_stdcxx_dir}/libstdc++.so*")
+        if(_stdcxx_variants)
+          list(APPEND _toolchain_vendor_libs ${_stdcxx_variants})
+        else()
+          list(APPEND _toolchain_vendor_libs "${_stdcxx_path}")
+        endif()
+      else()
+        message(WARNING "Could not determine path to libstdc++.so.6 from ${CMAKE_CXX_COMPILER}")
+      endif()
+
+      execute_process(
+        COMMAND ${CMAKE_CXX_COMPILER} "-print-file-name=libgcc_s.so.1"
+        OUTPUT_VARIABLE _gccs_path
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+      )
+      if(_gccs_path AND EXISTS "${_gccs_path}" AND NOT IS_DIRECTORY "${_gccs_path}")
+        get_filename_component(_gccs_dir "${_gccs_path}" DIRECTORY)
+        file(GLOB _gccs_variants CONFIGURE_DEPENDS "${_gccs_dir}/libgcc_s.so*")
+        if(_gccs_variants)
+          list(APPEND _toolchain_vendor_libs ${_gccs_variants})
+        else()
+          list(APPEND _toolchain_vendor_libs "${_gccs_path}")
+        endif()
+      else()
+        message(WARNING "Could not determine path to libgcc_s.so.1 from ${CMAKE_CXX_COMPILER}")
+      endif()
+    endif()
+
+    find_program(PYJAGS_GFORTRAN_EXECUTABLE NAMES gfortran)
+    if(PYJAGS_GFORTRAN_EXECUTABLE)
+      execute_process(
+        COMMAND ${PYJAGS_GFORTRAN_EXECUTABLE} "-print-file-name=libgfortran.so.5"
+        OUTPUT_VARIABLE _gfortran_path
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+      )
+      if(_gfortran_path AND EXISTS "${_gfortran_path}" AND NOT IS_DIRECTORY "${_gfortran_path}")
+        get_filename_component(_gfortran_dir "${_gfortran_path}" DIRECTORY)
+        file(GLOB _gfortran_variants CONFIGURE_DEPENDS "${_gfortran_dir}/libgfortran.so*")
+        if(_gfortran_variants)
+          list(APPEND _toolchain_vendor_libs ${_gfortran_variants})
+        else()
+          list(APPEND _toolchain_vendor_libs "${_gfortran_path}")
+        endif()
+      else()
+        message(WARNING "gfortran located at ${PYJAGS_GFORTRAN_EXECUTABLE} but libgfortran.so.5 not found via -print-file-name")
+      endif()
+    else()
+      message(STATUS "gfortran executable not found; libgfortran will not be bundled unless provided by JAGS installation.")
+    endif()
+
+    if(_toolchain_vendor_libs)
+      list(REMOVE_DUPLICATES _toolchain_vendor_libs)
+      install(FILES ${_toolchain_vendor_libs} DESTINATION "${_vendor_lib_dest}")
+    else()
+      message(WARNING "No GNU toolchain runtime libraries detected for bundling; resulting wheel may depend on system libstdc++/libgcc_s/libgfortran.")
+    endif()
+  endif()
 
   if(JAGS_RUNTIME_MODULEDIR AND EXISTS "${JAGS_RUNTIME_MODULEDIR}")
     if(NOT JAGS_VERSION_MAJOR)
