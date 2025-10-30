@@ -16,6 +16,7 @@ import ctypes.util
 import os
 import logging
 import sys
+from pathlib import Path
 
 from .console import Console
 
@@ -107,9 +108,35 @@ def locate_modules_dir_using_shared_objects():
     return None
 
 
+def locate_modules_dir_from_package():
+    root = Path(__file__).resolve().parent
+    major = version()[0]
+
+    candidates = [
+        root / "_vendor" / "jags" / "lib" / "JAGS" / f"modules-{major}",
+        # auditwheel / delvewheel may relocate vendored libs into <package>_vendor.libs
+        root.parent / "pyjags_jw.libs" / "JAGS" / f"modules-{major}",
+        root.parent / "pyjags.libs" / "JAGS" / f"modules-{major}",
+    ]
+
+    env_root = os.getenv("PYJAGS_VENDOR_JAGS_ROOT")
+    if env_root:
+        candidates.insert(0, Path(env_root) / "lib" / "JAGS" / f"modules-{major}")
+
+    for candidate in candidates:
+        if candidate.is_dir():
+            logger.info("Using vendored JAGS modules located in %s.", candidate)
+            return str(candidate)
+
+    return None
+
+
 def locate_modules_dir():
     logger.debug('Locating JAGS module directory.')
-    return locate_modules_dir_using_shared_objects()
+    dir_path = locate_modules_dir_using_shared_objects()
+    if dir_path:
+        return dir_path
+    return locate_modules_dir_from_package()
 
 
 def get_modules_dir():

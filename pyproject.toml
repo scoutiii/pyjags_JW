@@ -72,3 +72,18 @@ PYJAGS_VENDOR_JAGS = true
 [tool.pytest.ini_options]
 addopts = "-q"
 testpaths = ["test"]
+
+
+[tool.cibuildwheel]
+build = ["cp311-manylinux_x86_64", "cp312-manylinux_x86_64", "cp313-manylinux_x86_64"]
+skip = ["*-musllinux_*"]                    # adjust once Alpine support is ready
+test-requires = ["pytest"]
+test-command = "bash {project}/ci/run_tests.sh {project} {tmpdir}"
+
+[tool.cibuildwheel.linux]
+before-all = "bash {project}/ci/build_jags.sh"
+
+[tool.cibuildwheel.linux.environment]
+PYJAGS_VENDOR_JAGS_ROOT = "/project/vendor/jags"
+PKG_CONFIG_PATH = "/project/vendor/jags/lib/pkgconfig:${PKG_CONFIG_PATH}"
+LD_LIBRARY_PATH = "/project/vendor/jags/lib:${LD_LIBRARY_PATH}"
