@@ -104,7 +104,9 @@ def locate_modules_dir_using_shared_objects():
         if name.startswith('jags') or name.startswith('libjags'):
             dir = os.path.dirname(path)
             logger.info('Using JAGS library located in %s.', path)
-            return os.path.join(dir, 'JAGS', 'modules-{}'.format(version()[0]))
+            candidate = os.path.join(dir, 'JAGS', 'modules-{}'.format(version()[0]))
+            if os.path.isdir(candidate):
+                return candidate
     return None
 
 

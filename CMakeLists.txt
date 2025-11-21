@@ -140,15 +140,31 @@ install(TARGETS console
 if(PYJAGS_VENDOR_JAGS AND JAGS_RUNTIME_LIBDIR)
   set(_vendor_lib_dest "pyjags/_vendor/jags/lib")
   if(WIN32)
-    set(_jags_lib_pattern "${JAGS_RUNTIME_LIBDIR}/jags*.dll")
+    set(_jags_lib_patterns
+      "${JAGS_RUNTIME_LIBDIR}/jags*.dll"
+      "${JAGS_RUNTIME_LIBDIR}/jrmath*.dll"
+    )
   elseif(APPLE)
-    set(_jags_lib_pattern "${JAGS_RUNTIME_LIBDIR}/libjags*.dylib")
+    set(_jags_lib_patterns
+      "${JAGS_RUNTIME_LIBDIR}/libjags*.dylib"
+      "${JAGS_RUNTIME_LIBDIR}/libjrmath*.dylib"
+    )
   else()
-    set(_jags_lib_pattern "${JAGS_RUNTIME_LIBDIR}/libjags*.so")
+    set(_jags_lib_patterns
+      "${JAGS_RUNTIME_LIBDIR}/libjags*.so"
+      "${JAGS_RUNTIME_LIBDIR}/libjrmath*.so"
+    )
   endif()
-  file(GLOB JAGS_RUNTIME_LIBS CONFIGURE_DEPENDS "${_jags_lib_pattern}")
+  set(JAGS_RUNTIME_LIBS "")
+  foreach(_pattern IN LISTS _jags_lib_patterns)
+    file(GLOB _libs CONFIGURE_DEPENDS "${_pattern}")
+    if(_libs)
+      list(APPEND JAGS_RUNTIME_LIBS ${_libs})
+    endif()
+  endforeach()
+  list(REMOVE_DUPLICATES JAGS_RUNTIME_LIBS)
   if(NOT JAGS_RUNTIME_LIBS)
-    message(FATAL_ERROR "Unable to locate JAGS libraries under ${_jags_lib_pattern}")
+    message(FATAL_ERROR "Unable to locate JAGS libraries under ${JAGS_RUNTIME_LIBDIR} (patterns: ${_jags_lib_patterns})")
   endif()
   install(FILES ${JAGS_RUNTIME_LIBS} DESTINATION "${_vendor_lib_dest}")
 
