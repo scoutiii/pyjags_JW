@@ -18,10 +18,51 @@ import logging
 import sys
 from pathlib import Path
 
-from .console import Console
-
 logger = logging.getLogger('pyjags')
-modules_dir = None
+
+
+def _ensure_module_search_path(path):
+    """Add the JAGS modules directory to the dynamic loader search path."""
+    if not path:
+        return
+    path = str(path)
+    for key in ('LTDL_LIBRARY_PATH', 'JAGS_MODULE_PATH'):
+        current = os.environ.get(key)
+        parts = current.split(os.pathsep) if current else []
+        if path in parts:
+            continue
+        os.environ[key] = os.pathsep.join([path] + parts) if parts else path
+
+
+def _prefill_modules_dir_from_package():
+    """Eagerly seed module search path before the JAGS runtime initializes."""
+    root = Path(__file__).resolve().parent
+
+    candidates = []
+
+    # Vendored wheel layout
+    candidates.extend((root / "_vendor" / "jags" / "lib" / "JAGS").glob("modules-*"))
+
+    # auditwheel / delvewheel relocations
+    candidates.extend((root.parent / "pyjags_jw.libs" / "JAGS").glob("modules-*"))
+    candidates.extend((root.parent / "pyjags.libs" / "JAGS").glob("modules-*"))
+
+    env_root = os.getenv("PYJAGS_VENDOR_JAGS_ROOT")
+    if env_root:
+        candidates.extend((Path(env_root) / "lib" / "JAGS").glob("modules-*"))
+
+    for candidate in candidates:
+        if candidate.is_dir():
+            _ensure_module_search_path(candidate)
+            return str(candidate)
+
+    return None
+
+
+# Seed search path (must happen before importing Console / libjags)
+modules_dir = _prefill_modules_dir_from_package()
+
+from .console import Console  # noqa: E402
 
 
 def version():
@@ -146,6 +187,7 @@ def get_modules_dir():
     global modules_dir
     if modules_dir is None:
         modules_dir = locate_modules_dir()
+        _ensure_module_search_path(modules_dir)
     if modules_dir is None:
         raise RuntimeError(
             'Could not locate JAGS module directory. Use pyjags.set_modules_dir(path) to configure it manually.')
@@ -156,6 +198,7 @@ def set_modules_dir(directory):
     """Set modules directory."""
     global modules_dir
     modules_dir = directory
+    _ensure_module_search_path(modules_dir)
 
 
 def list_modules():
@@ -175,6 +218,7 @@ def load_module(name, modules_dir=None):
     """
     if name not in loaded_modules:
         dir = modules_dir or get_modules_dir()
+        _ensure_module_search_path(dir)
         ext = '.so' if os.name == 'posix' else '.dll'
         path = os.path.join(dir, name + ext)
         logger.info('Loading module %s from %s', name, path)
