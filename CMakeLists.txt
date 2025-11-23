@@ -228,6 +228,24 @@ if(PYJAGS_VENDOR_JAGS AND JAGS_RUNTIME_LIBDIR)
       else()
         message(WARNING "gfortran located at ${PYJAGS_GFORTRAN_EXECUTABLE} but libgfortran.so.5 not found via -print-file-name")
       endif()
+
+      execute_process(
+        COMMAND ${PYJAGS_GFORTRAN_EXECUTABLE} "-print-file-name=libquadmath.so.0"
+        OUTPUT_VARIABLE _quadmath_path
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+      )
+      if(_quadmath_path AND EXISTS "${_quadmath_path}" AND NOT IS_DIRECTORY "${_quadmath_path}")
+        get_filename_component(_quadmath_dir "${_quadmath_path}" DIRECTORY)
+        file(GLOB _quadmath_variants CONFIGURE_DEPENDS "${_quadmath_dir}/libquadmath.so*")
+        if(_quadmath_variants)
+          list(APPEND _toolchain_vendor_libs ${_quadmath_variants})
+        else()
+          list(APPEND _toolchain_vendor_libs "${_quadmath_path}")
+        endif()
+      else()
+        message(WARNING "gfortran located at ${PYJAGS_GFORTRAN_EXECUTABLE} but libquadmath.so.0 not found via -print-file-name")
+      endif()
     else()
       message(STATUS "gfortran executable not found; libgfortran will not be bundled unless provided by JAGS installation.")
     endif()
