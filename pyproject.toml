@@ -75,13 +75,14 @@ testpaths = ["test"]
 
 
 [tool.cibuildwheel]
-build = ["cp311-manylinux_x86_64", "cp312-manylinux_x86_64", "cp313-manylinux_x86_64"]
+build = ["cp311-manylinux_*", "cp312-manylinux_*", "cp313-manylinux_*"]
 skip = ["*-musllinux_*"]                    # adjust once Alpine support is ready
 test-requires = ["pytest"]
 test-command = "bash {project}/ci/run_tests.sh {project} {tmpdir}"
 
 [tool.cibuildwheel.linux]
 before-all = "bash {project}/ci/build_jags.sh"
+archs = ["x86_64", "aarch64"]
 
 [tool.cibuildwheel.linux.environment]
 PYJAGS_VENDOR_JAGS_ROOT = "/project/vendor/jags"

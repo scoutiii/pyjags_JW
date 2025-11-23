@@ -1,4 +1,6 @@
 # PyJAGS: The Python Interface to JAGS
+[![Build wheels](https://github.com/scoutiii/pyjags_JW/actions/workflows/build-wheels.yml/badge.svg)](https://github.com/scoutiii/pyjags_JW/actions/workflows/build-wheels.yml)
+[![PyPI](https://img.shields.io/pypi/v/pyjags-jw.svg)](https://pypi.org/project/pyjags-jw/)
 PyJAGS provides a Python interface to JAGS, a program for analysis of Bayesian
 hierarchical models using Markov Chain Monte Carlo (MCMC) simulation.
 
@@ -12,10 +14,14 @@ PyJAGS adds the following features on top of JAGS:
 License: GPLv2
 
 ## Supported Platforms
-PyJAGS works on MacOS and Linux. Windows is not currently supported.
+- Linux: prebuilt wheels for CPython 3.11–3.13 on x86_64 and aarch64 with JAGS + toolchain runtimes fully bundled. `pip install pyjags-jw` should “just work.”
+- macOS/Windows: planned; source builds still require a system JAGS for now.
 
 ## Installation
-A working JAGS installation is required.
+```
+pip install pyjags-jw
+```
+No system JAGS needed on supported Linux wheels.
 
 <pre>
     pip install pyjags
