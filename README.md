@@ -15,7 +15,8 @@ License: GPLv2
 
 ## Supported Platforms
 - Linux: prebuilt wheels for CPython 3.11–3.13 on x86_64 and aarch64 with JAGS + toolchain runtimes fully bundled. `pip install pyjags-jw` should “just work.”
-- macOS/Windows: planned; source builds still require a system JAGS for now.
+- macOS: wheels targeted for CPython 3.11–3.13 (x86_64) with bundled JAGS; arm64 coming next. Source builds still require a system JAGS if no wheel is available.
+- Windows: planned; source builds currently require a system JAGS.
 
 ## Installation
 ```

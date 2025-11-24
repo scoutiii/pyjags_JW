@@ -84,6 +84,10 @@ test-command = "bash {project}/ci/run_tests.sh {project} {tmpdir}"
 before-all = "bash {project}/ci/build_jags.sh"
 archs = ["x86_64", "aarch64"]
 
+[tool.cibuildwheel.macos]
+before-all = "bash {project}/ci/build_jags_macos.sh"
+archs = ["x86_64"]
+
 [tool.cibuildwheel.linux.environment]
 PYJAGS_VENDOR_JAGS_ROOT = "/project/vendor/jags"
 PKG_CONFIG_PATH = "/project/vendor/jags/lib/pkgconfig:${PKG_CONFIG_PATH}"
