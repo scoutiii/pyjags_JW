@@ -88,6 +88,13 @@ archs = ["x86_64", "aarch64"]
 before-all = "bash {project}/ci/build_jags_macos.sh"
 archs = ["x86_64"]
 
+[tool.cibuildwheel.windows]
+before-all = "powershell -ExecutionPolicy Bypass -File {project}/ci/build_jags_windows.ps1"
+archs = ["AMD64"]
+
+[tool.cibuildwheel.windows.environment]
+PYJAGS_VENDOR_JAGS_ROOT = "C:\\jags"
+
 [tool.cibuildwheel.linux.environment]
 PYJAGS_VENDOR_JAGS_ROOT = "/project/vendor/jags"
 PKG_CONFIG_PATH = "/project/vendor/jags/lib/pkgconfig:${PKG_CONFIG_PATH}"
