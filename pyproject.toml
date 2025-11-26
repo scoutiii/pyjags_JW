@@ -82,11 +82,11 @@ test-command = "bash {project}/ci/run_tests.sh {project} {tmpdir}"
 
 [tool.cibuildwheel.linux]
 before-all = "bash {project}/ci/build_jags.sh"
-archs = ["x86_64", "aarch64"]
+archs = ["x86_64"]
 
 [tool.cibuildwheel.macos]
 before-all = "bash {project}/ci/build_jags_macos.sh"
-archs = ["x86_64"]
+archs = ["arm64"]
 
 [tool.cibuildwheel.windows]
 before-all = "powershell -ExecutionPolicy Bypass -File {project}/ci/build_jags_windows.ps1"

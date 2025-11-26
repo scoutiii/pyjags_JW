@@ -134,7 +134,7 @@ else()
   set(_console_rpath "$ORIGIN;$ORIGIN/_vendor/jags/lib")
 endif()
 
-if(NOT WIN32)
+if(NOT WIN32 AND NOT APPLE)
   set_target_properties(console PROPERTIES
     INSTALL_RPATH "${_console_rpath}"
     BUILD_RPATH "${_console_rpath}"
@@ -281,7 +281,7 @@ if(PYJAGS_VENDOR_JAGS AND JAGS_RUNTIME_LIBDIR)
   endif()
 
   # Normalize RPATH of vendored JAGS libraries and modules so they resolve within the wheel.
-  if(NOT WIN32)
+  if(NOT WIN32 AND NOT APPLE)
     find_program(PATCHELF_EXECUTABLE patchelf)
     if(PATCHELF_EXECUTABLE)
       install(CODE "
