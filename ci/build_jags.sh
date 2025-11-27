@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euxo pipefail
 
-JAGS_VERSION=4.3.2
+JAGS_VERSION=4.3.1
 PREFIX=/project/vendor/jags
 
 mkdir -p /tmp/jags-src && cd /tmp/jags-src

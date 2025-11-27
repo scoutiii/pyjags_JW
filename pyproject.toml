@@ -90,6 +90,8 @@ archs = ["arm64"]
 [tool.cibuildwheel.macos.environment]
 MACOSX_DEPLOYMENT_TARGET = "15.0"
 CMAKE_OSX_DEPLOYMENT_TARGET = "15.0"
+PYJAGS_VENDOR_JAGS_ROOT = "/tmp/jags"
+PKG_CONFIG_PATH = "/tmp/jags/lib/pkgconfig:${PKG_CONFIG_PATH}"
 
 [tool.cibuildwheel.windows]
 before-all = "powershell -ExecutionPolicy Bypass -File {project}/ci/build_jags_windows.ps1"
