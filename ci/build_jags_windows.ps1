@@ -48,6 +48,7 @@ function Has-JagsLayout([string]$root) {
 
 $JagsRoot = $null
 foreach ($c in $candidates) {
+  Write-Host "Checking candidate: $c"
   if (Has-JagsLayout $c) { $JagsRoot = $c; break }
 }
 
@@ -68,3 +69,10 @@ if (-not $JagsRoot) {
 Write-Host "Detected JAGS root: $JagsRoot"
 $env:PYJAGS_VENDOR_JAGS_ROOT = $JagsRoot
 Add-Content -Path $env:GITHUB_ENV -Value "PYJAGS_VENDOR_JAGS_ROOT=$JagsRoot"
+
+# Log a brief inventory to help debugging in CI
+Write-Host "JAGS inventory (trimmed):"
+Get-ChildItem -Path (Join-Path $JagsRoot "include") -Filter "version.h" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 5 FullName | ForEach-Object { Write-Host "  include: $_" }
+Get-ChildItem -Path (Join-Path $JagsRoot "include") -Recurse -ErrorAction SilentlyContinue -Depth 2 | Select-Object -First 10 FullName | ForEach-Object { Write-Host "  include entry: $_" }
+Get-ChildItem -Path (Join-Path $JagsRoot "bin") -Filter "jags*.dll" -ErrorAction SilentlyContinue | Select-Object -First 10 FullName | ForEach-Object { Write-Host "  bin dll: $_" }
+Get-ChildItem -Path (Join-Path $JagsRoot "lib") -Filter "jags*.lib" -ErrorAction SilentlyContinue | Select-Object -First 10 FullName | ForEach-Object { Write-Host "  lib import: $_" }
