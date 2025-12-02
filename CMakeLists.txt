@@ -14,6 +14,14 @@ if(NOT PYJAGS_VENDOR_JAGS_ROOT AND DEFINED ENV{PYJAGS_VENDOR_JAGS_ROOT})
   set(PYJAGS_VENDOR_JAGS_ROOT "$ENV{PYJAGS_VENDOR_JAGS_ROOT}")
 endif()
 
+set(_jags_root_candidates "")
+if(PYJAGS_VENDOR_JAGS_ROOT)
+  list(APPEND _jags_root_candidates "${PYJAGS_VENDOR_JAGS_ROOT}")
+endif()
+if(WIN32)
+  list(APPEND _jags_root_candidates "C:/jags" "C:/Program Files/JAGS" "C:/Program Files/JAGS/JAGS-4.3.1")
+endif()
+
 if(PkgConfig_FOUND)
   pkg_check_modules(JAGS IMPORTED_TARGET jags)
   pkg_get_variable(JAGS_PREFIX jags prefix)
@@ -87,17 +95,32 @@ if(NOT TARGET PkgConfig::JAGS)
     set(_jags_root_guess "${JAGS_PREFIX}")
   endif()
 
+  set(_include_roots "")
+  foreach(_cand IN LISTS _jags_root_candidates)
+    list(APPEND _include_roots "${_cand}/include" "${_cand}/include/JAGS")
+  endforeach()
+  if(JAGS_INCLUDEDIR)
+    list(APPEND _include_roots "${JAGS_INCLUDEDIR}")
+  endif()
+
   find_path(JAGS_INCLUDE_DIRS
     NAMES Console.h version.h
-    PATHS "${JAGS_INCLUDEDIR}" "${_jags_root_guess}/include" "${_jags_root_guess}/include/JAGS"
+    PATHS ${_include_roots}
     PATH_SUFFIXES JAGS
-    NO_DEFAULT_PATH
   )
+
+  set(_lib_roots "")
+  foreach(_cand IN LISTS _jags_root_candidates)
+    list(APPEND _lib_roots "${_cand}/lib" "${_cand}/bin")
+    list(APPEND _lib_roots "${_cand}/JAGS-4.3.1/lib" "${_cand}/JAGS-4.3.1/bin")
+  endforeach()
+  if(JAGS_LIBDIR)
+    list(APPEND _lib_roots "${JAGS_LIBDIR}")
+  endif()
 
   find_library(JAGS_LIBRARY
     NAMES jags-4 libjags-4 jags libjags jags-4.3.1 libjags-4.3.1
-    PATHS "${JAGS_LIBDIR}" "${_jags_root_guess}/lib" "${_jags_root_guess}/bin"
-    NO_DEFAULT_PATH
+    PATHS ${_lib_roots}
   )
 
   if(JAGS_LIBRARY AND JAGS_INCLUDE_DIRS)

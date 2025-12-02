@@ -32,3 +32,39 @@ Write-Host "Installing to $Prefix ..."
 Start-Process -FilePath $Installer -ArgumentList "/S","/D=$Prefix" -Wait -PassThru | Out-Null
 
 Write-Host "JAGS installed under $Prefix"
+
+# Try to discover the actual install root (some installers nest a JAGS-<ver> directory).
+$candidates = @(
+  "$Prefix",
+  (Join-Path $Prefix "JAGS-$JagsVersion"),
+  (Join-Path $Prefix "JAGS\$JagsVersion"),
+  (Join-Path ${env:ProgramFiles} "JAGS\JAGS-$JagsVersion")
+)
+
+function Has-JagsLayout([string]$root) {
+  return (Test-Path (Join-Path $root "include\JAGS\version.h")) -or
+         (Test-Path (Join-Path $root "include\version.h"))
+}
+
+$JagsRoot = $null
+foreach ($c in $candidates) {
+  if (Has-JagsLayout $c) { $JagsRoot = $c; break }
+}
+
+# Last-resort search within the prefix for version.h to locate the root.
+if (-not $JagsRoot) {
+  $hit = Get-ChildItem -Path $Prefix -Filter version.h -Recurse -ErrorAction SilentlyContinue |
+    Where-Object { $_.FullName -match 'JAGS' } |
+    Select-Object -First 1
+  if ($hit) {
+    $JagsRoot = Split-Path -Path $hit.Directory -Parent
+  }
+}
+
+if (-not $JagsRoot) {
+  throw "Installed JAGS layout not found under $Prefix"
+}
+
+Write-Host "Detected JAGS root: $JagsRoot"
+$env:PYJAGS_VENDOR_JAGS_ROOT = $JagsRoot
+Add-Content -Path $env:GITHUB_ENV -Value "PYJAGS_VENDOR_JAGS_ROOT=$JagsRoot"
