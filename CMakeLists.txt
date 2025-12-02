@@ -137,7 +137,7 @@ if(NOT TARGET PkgConfig::JAGS)
       PATHS ${_jags_root_candidates}
       PATH_SUFFIXES "x64/bin" "bin"
     )
-  )
+  endif()
 
   # Fallback: search recursively for any jags* library (dll/lib) under the root.
   if(NOT JAGS_LIBRARY)
