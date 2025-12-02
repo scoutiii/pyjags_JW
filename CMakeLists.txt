@@ -130,6 +130,15 @@ if(NOT TARGET PkgConfig::JAGS)
     PATHS ${_lib_roots}
   )
 
+  # On Windows, also allow linking directly to the DLL if no import lib is present.
+  if(WIN32 AND NOT JAGS_LIBRARY)
+    find_library(JAGS_LIBRARY
+      NAMES libjags-4 jags-4 jags
+      PATHS ${_jags_root_candidates}
+      PATH_SUFFIXES "x64/bin" "bin"
+    )
+  )
+
   # Fallback: search recursively for any jags* library (dll/lib) under the root.
   if(NOT JAGS_LIBRARY)
     set(_fallback_libs "")
