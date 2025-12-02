@@ -10,6 +10,10 @@ find_package(PkgConfig QUIET)
 option(PYJAGS_VENDOR_JAGS "Bundle a JAGS runtime inside the wheel" ON)
 set(PYJAGS_VENDOR_JAGS_ROOT "" CACHE PATH "Use this JAGS installation instead of pkg-config discovery when bundling")
 
+if(NOT PYJAGS_VENDOR_JAGS_ROOT AND DEFINED ENV{PYJAGS_VENDOR_JAGS_ROOT})
+  set(PYJAGS_VENDOR_JAGS_ROOT "$ENV{PYJAGS_VENDOR_JAGS_ROOT}")
+endif()
+
 if(PkgConfig_FOUND)
   pkg_check_modules(JAGS IMPORTED_TARGET jags)
   pkg_get_variable(JAGS_PREFIX jags prefix)
@@ -21,6 +25,14 @@ endif()
 set(JAGS_VERSION_MAJOR "")
 if(JAGS_VERSION)
   string(REGEX MATCH "^[0-9]+" JAGS_VERSION_MAJOR "${JAGS_VERSION}")
+endif()
+if(NOT JAGS_VERSION_MAJOR AND PYJAGS_VENDOR_JAGS_ROOT)
+  # Default to JAGS 4.x when vendor root is provided without pkg-config metadata.
+  set(JAGS_VERSION_MAJOR 4)
+endif()
+
+if(NOT JAGS_PREFIX AND PYJAGS_VENDOR_JAGS_ROOT)
+  set(JAGS_PREFIX "${PYJAGS_VENDOR_JAGS_ROOT}")
 endif()
 
 if(NOT JAGS_INCLUDEDIR)
@@ -65,6 +77,38 @@ if(NOT PkgConfig_FOUND AND PYJAGS_VENDOR_JAGS_ROOT)
   if(JAGS_VERSION_MAJOR)
     list(APPEND _jags_runtime_module_candidates "${PYJAGS_VENDOR_JAGS_ROOT}/lib/JAGS/modules-${JAGS_VERSION_MAJOR}")
     list(APPEND _jags_runtime_module_candidates "${PYJAGS_VENDOR_JAGS_ROOT}/modules/JAGS/modules-${JAGS_VERSION_MAJOR}")
+  endif()
+endif()
+
+# Windows (and some vendored setups) lack pkg-config; build an imported target manually.
+if(NOT TARGET PkgConfig::JAGS)
+  set(_jags_root_guess "${PYJAGS_VENDOR_JAGS_ROOT}")
+  if(NOT _jags_root_guess AND JAGS_PREFIX)
+    set(_jags_root_guess "${JAGS_PREFIX}")
+  endif()
+
+  find_path(JAGS_INCLUDE_DIRS
+    NAMES Console.h version.h
+    PATHS "${JAGS_INCLUDEDIR}" "${_jags_root_guess}/include" "${_jags_root_guess}/include/JAGS"
+    PATH_SUFFIXES JAGS
+    NO_DEFAULT_PATH
+  )
+
+  find_library(JAGS_LIBRARY
+    NAMES jags-4 libjags-4 jags libjags jags-4.3.1 libjags-4.3.1
+    PATHS "${JAGS_LIBDIR}" "${_jags_root_guess}/lib" "${_jags_root_guess}/bin"
+    NO_DEFAULT_PATH
+  )
+
+  if(JAGS_LIBRARY AND JAGS_INCLUDE_DIRS)
+    add_library(PkgConfig::JAGS UNKNOWN IMPORTED)
+    set_target_properties(PkgConfig::JAGS PROPERTIES
+      IMPORTED_LOCATION "${JAGS_LIBRARY}"
+      INTERFACE_INCLUDE_DIRECTORIES "${JAGS_INCLUDE_DIRS}"
+    )
+    get_filename_component(JAGS_LIBDIR "${JAGS_LIBRARY}" DIRECTORY)
+  else()
+    message(FATAL_ERROR "Unable to locate JAGS. Set PYJAGS_VENDOR_JAGS_ROOT to a JAGS installation containing include/ and lib/ or bin/.")
   endif()
 endif()
 
