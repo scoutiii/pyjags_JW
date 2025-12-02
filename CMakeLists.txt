@@ -123,6 +123,27 @@ if(NOT TARGET PkgConfig::JAGS)
     PATHS ${_lib_roots}
   )
 
+  # Fallback: search recursively for any jags* library (dll/lib) under the root.
+  if(NOT JAGS_LIBRARY)
+    set(_fallback_libs "")
+    foreach(_cand IN LISTS _jags_root_candidates)
+      file(GLOB_RECURSE _found_libs
+        "${_cand}/**/jags*.lib"
+        "${_cand}/**/libjags*.lib"
+        "${_cand}/**/jags*.dll"
+        "${_cand}/**/libjags*.dll"
+        "${_cand}/**/jags*.dll.a"
+        "${_cand}/**/libjags*.dll.a"
+      )
+      list(APPEND _fallback_libs ${_found_libs})
+    endforeach()
+    list(REMOVE_DUPLICATES _fallback_libs)
+    list(LENGTH _fallback_libs _fallback_len)
+    if(_fallback_len GREATER 0)
+      list(GET _fallback_libs 0 JAGS_LIBRARY)
+    endif()
+  endif()
+
   if(JAGS_LIBRARY AND JAGS_INCLUDE_DIRS)
     add_library(PkgConfig::JAGS UNKNOWN IMPORTED)
     set_target_properties(PkgConfig::JAGS PROPERTIES
@@ -130,6 +151,8 @@ if(NOT TARGET PkgConfig::JAGS)
       INTERFACE_INCLUDE_DIRECTORIES "${JAGS_INCLUDE_DIRS}"
     )
     get_filename_component(JAGS_LIBDIR "${JAGS_LIBRARY}" DIRECTORY)
+    message(STATUS "Using JAGS include: ${JAGS_INCLUDE_DIRS}")
+    message(STATUS "Using JAGS library: ${JAGS_LIBRARY}")
   else()
     message(FATAL_ERROR "Unable to locate JAGS. Set PYJAGS_VENDOR_JAGS_ROOT to a JAGS installation containing include/ and lib/ or bin/.")
   endif()

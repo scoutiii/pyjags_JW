@@ -74,5 +74,6 @@ Add-Content -Path $env:GITHUB_ENV -Value "PYJAGS_VENDOR_JAGS_ROOT=$JagsRoot"
 Write-Host "JAGS inventory (trimmed):"
 Get-ChildItem -Path (Join-Path $JagsRoot "include") -Filter "version.h" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 5 FullName | ForEach-Object { Write-Host "  include: $_" }
 Get-ChildItem -Path (Join-Path $JagsRoot "include") -Recurse -ErrorAction SilentlyContinue -Depth 2 | Select-Object -First 10 FullName | ForEach-Object { Write-Host "  include entry: $_" }
-Get-ChildItem -Path (Join-Path $JagsRoot "bin") -Filter "jags*.dll" -ErrorAction SilentlyContinue | Select-Object -First 10 FullName | ForEach-Object { Write-Host "  bin dll: $_" }
-Get-ChildItem -Path (Join-Path $JagsRoot "lib") -Filter "jags*.lib" -ErrorAction SilentlyContinue | Select-Object -First 10 FullName | ForEach-Object { Write-Host "  lib import: $_" }
+Get-ChildItem -Path (Join-Path $JagsRoot "bin") -ErrorAction SilentlyContinue | Select-Object -First 10 FullName | ForEach-Object { Write-Host "  bin entry: $_" }
+Get-ChildItem -Path (Join-Path $JagsRoot "lib") -ErrorAction SilentlyContinue | Select-Object -First 10 FullName | ForEach-Object { Write-Host "  lib entry: $_" }
+Get-ChildItem -Path $JagsRoot -Recurse -ErrorAction SilentlyContinue -Depth 3 | Where-Object { $_.Name -like 'jags*' -or $_.Name -like 'libjags*' } | Select-Object -First 15 FullName | ForEach-Object { Write-Host "  jagspath: $_" }
