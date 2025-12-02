@@ -81,7 +81,7 @@ Get-ChildItem -Path $JagsRoot -Recurse -ErrorAction SilentlyContinue -Depth 3 | 
 # Ensure an MSVC import library exists (the installer ships a GCC .dll.a)
 $dllPath = Join-Path $JagsRoot "x64\bin\libjags-4.dll"
 $implibPath = Join-Path $JagsRoot "x64\lib\libjags-4.lib"
-if (Test-Path $dllPath -and -not (Test-Path $implibPath)) {
+if ((Test-Path $dllPath) -and (-not (Test-Path $implibPath))) {
   Write-Host "MSVC import library not found; generating $implibPath from $dllPath"
   $tempDef = Join-Path $env:TEMP "jags_exports.def"
 
