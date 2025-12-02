@@ -175,6 +175,43 @@ if(NOT TARGET PkgConfig::JAGS)
     endforeach()
   endif()
 
+  # Try to locate jrmath alongside jags (needed on Windows).
+  set(JRMath_LIBRARY "")
+  find_library(JRMath_LIBRARY
+    NAMES jrmath-4 libjrmath-4 jrmath libjrmath
+    PATHS ${_lib_roots}
+  )
+  if(NOT JRMath_LIBRARY)
+    set(_jrmath_fallback "")
+    foreach(_cand IN LISTS _jags_root_candidates)
+      file(GLOB_RECURSE _found_jrmath
+        "${_cand}/**/jrmath*.lib"
+        "${_cand}/**/libjrmath*.lib"
+        "${_cand}/**/jrmath*.dll"
+        "${_cand}/**/libjrmath*.dll"
+      )
+      list(APPEND _jrmath_fallback ${_found_jrmath})
+    endforeach()
+    list(REMOVE_DUPLICATES _jrmath_fallback)
+    if(_jrmath_fallback)
+      list(GET _jrmath_fallback 0 JRMath_LIBRARY)
+    endif()
+  endif()
+
+  if(JRMath_LIBRARY AND JRMath_LIBRARY MATCHES "\\.dll$")
+    get_filename_component(_jrmath_name "${JRMath_LIBRARY}" NAME_WE)
+    set(_jrmath_imports "")
+    foreach(_cand IN LISTS _lib_roots)
+      list(APPEND _jrmath_imports "${_cand}/${_jrmath_name}.lib" "${_cand}/lib${_jrmath_name}.lib")
+    endforeach()
+    foreach(_imp IN LISTS _jrmath_imports)
+      if(EXISTS "${_imp}")
+        set(JRMath_LIBRARY "${_imp}")
+        break()
+      endif()
+    endforeach()
+  endif()
+
   if(JAGS_LIBRARY AND JAGS_INCLUDE_DIRS)
     add_library(PkgConfig::JAGS UNKNOWN IMPORTED)
     set_target_properties(PkgConfig::JAGS PROPERTIES
@@ -275,6 +312,8 @@ if(PYJAGS_VENDOR_JAGS AND JAGS_RUNTIME_LIBDIR)
     set(_jags_lib_patterns
       "${JAGS_RUNTIME_LIBDIR}/jags*.dll"
       "${JAGS_RUNTIME_LIBDIR}/jrmath*.dll"
+      "${JAGS_RUNTIME_LIBDIR}/libjags*.dll"
+      "${JAGS_RUNTIME_LIBDIR}/libjrmath*.dll"
     )
   elseif(APPLE)
     set(_jags_lib_patterns
