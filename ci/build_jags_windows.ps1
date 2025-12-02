@@ -13,10 +13,12 @@ if (Test-Path $Installer) { Remove-Item $Installer -Force }
 # Use curl.exe to follow redirects reliably on GitHub runners
 $curl = "${env:ProgramFiles}\Git\mingw64\bin\curl.exe"
 if (!(Test-Path $curl)) { $curl = "curl.exe" }
-Write-Host "Trying $PrimaryUrl"
-& $curl -L --retry 5 --retry-delay 2 --fail -o $Installer $PrimaryUrl || $null
 
-if (!(Test-Path $Installer) -or ((Get-Item $Installer).Length -lt 1000000)) {
+Write-Host "Trying $PrimaryUrl"
+& $curl -L --retry 5 --retry-delay 2 --fail -o $Installer $PrimaryUrl
+$primaryOk = ($LASTEXITCODE -eq 0)
+
+if (-not $primaryOk -or !(Test-Path $Installer) -or ((Get-Item $Installer).Length -lt 1000000)) {
   Write-Host "Primary download failed or too small; trying mirror $MirrorUrl"
   if (Test-Path $Installer) { Remove-Item $Installer -Force }
   & $curl -L --retry 5 --retry-delay 2 --fail -o $Installer $MirrorUrl
