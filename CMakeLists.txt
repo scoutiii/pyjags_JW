@@ -221,6 +221,15 @@ if(NOT TARGET PkgConfig::JAGS)
     get_filename_component(JAGS_LIBDIR "${JAGS_LIBRARY}" DIRECTORY)
     message(STATUS "Using JAGS include: ${JAGS_INCLUDE_DIRS}")
     message(STATUS "Using JAGS library: ${JAGS_LIBRARY}")
+
+    if(JRMath_LIBRARY)
+      add_library(PkgConfig::JRMath UNKNOWN IMPORTED)
+      set_target_properties(PkgConfig::JRMath PROPERTIES
+        IMPORTED_LOCATION "${JRMath_LIBRARY}"
+        INTERFACE_INCLUDE_DIRECTORIES "${JAGS_INCLUDE_DIRS}"
+      )
+      message(STATUS "Using JRmath library: ${JRMath_LIBRARY}")
+    endif()
   else()
     message(FATAL_ERROR "Unable to locate JAGS. Set PYJAGS_VENDOR_JAGS_ROOT to a JAGS installation containing include/ and lib/ or bin/.")
   endif()
@@ -278,6 +287,7 @@ target_include_directories(console PRIVATE
 target_link_libraries(console PRIVATE
   pybind11::module
   PkgConfig::JAGS
+  PkgConfig::JRMath
 )
 
 if(JAGS_LDFLAGS_OTHER)
