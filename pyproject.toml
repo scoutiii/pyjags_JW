@@ -9,7 +9,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "pyjags-jw"
-version = "0.1.1"
+version = "0.2.0"
 description = "Python bindings for JAGS (modernized build so that everything 'just works' (JW))."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -92,10 +92,6 @@ MACOSX_DEPLOYMENT_TARGET = "15.0"
 CMAKE_OSX_DEPLOYMENT_TARGET = "15.0"
 PYJAGS_VENDOR_JAGS_ROOT = "/tmp/jags"
 PKG_CONFIG_PATH = "/tmp/jags/lib/pkgconfig:${PKG_CONFIG_PATH}"
-
-[tool.cibuildwheel.windows]
-before-all = "powershell -ExecutionPolicy Bypass -File {project}/ci/build_jags_windows.ps1"
-archs = ["AMD64"]
 
 [tool.cibuildwheel.linux.environment]
 PYJAGS_VENDOR_JAGS_ROOT = "/project/vendor/jags"
