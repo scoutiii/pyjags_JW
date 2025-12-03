@@ -8,7 +8,6 @@ on:
 
 jobs:
   linux:
-    if: false  # temporarily disabled while focusing on Windows
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -34,7 +33,6 @@ jobs:
           if-no-files-found: error
 
   macos:
-    if: false  # temporarily disabled while focusing on Windows
     runs-on: macos-latest
     strategy:
       fail-fast: false
@@ -60,6 +58,7 @@ jobs:
           if-no-files-found: error
 
   windows:
+    if: false  # temporarily disable Windows until the JAGS import-lib issue is resolved
     runs-on: windows-latest
     strategy:
       fail-fast: false
