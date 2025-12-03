@@ -229,8 +229,6 @@ if(NOT TARGET PkgConfig::JAGS)
         INTERFACE_INCLUDE_DIRECTORIES "${JAGS_INCLUDE_DIRS}"
       )
       message(STATUS "Using JRmath library: ${JRMath_LIBRARY}")
-    elseif(WIN32)
-      message(FATAL_ERROR "JRmath library not found under ${_jags_root_candidates}; required on Windows")
     endif()
   else()
     message(FATAL_ERROR "Unable to locate JAGS. Set PYJAGS_VENDOR_JAGS_ROOT to a JAGS installation containing include/ and lib/ or bin/.")
@@ -289,7 +287,6 @@ target_include_directories(console PRIVATE
 target_link_libraries(console PRIVATE
   pybind11::module
   PkgConfig::JAGS
-  PkgConfig::JRMath
 )
 
 if(JAGS_LDFLAGS_OTHER)
