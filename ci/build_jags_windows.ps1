@@ -113,11 +113,25 @@ function Ensure-ImportLib($dllPath, $implibPath) {
   & $libexe /def:$tempDef /machine:x64 /out:$implibPath
 }
 
+# Generate import libs for JAGS core and jrmath (installer ships MinGW-style libs)
 $dlls = @(
-  @{dll = Join-Path $JagsRoot "x64\bin\libjags-4.dll"; lib = Join-Path $JagsRoot "x64\lib\libjags-4.lib"},
-  @{dll = Join-Path $JagsRoot "x64\bin\libjrmath-4.dll"; lib = Join-Path $JagsRoot "x64\lib\libjrmath-4.lib"}
+  @{dll = Join-Path $JagsRoot "x64\bin\libjags-4.dll"; lib = Join-Path $JagsRoot "x64\lib\libjags-4.lib"}
 )
 
+# Discover jrmath DLL (versioned as libjrmath-0.dll on Windows)
+$jrmathDll = Get-ChildItem -Path (Join-Path $JagsRoot "x64\bin") -Filter "libjrmath-*.dll" -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($jrmathDll) {
+  $base = [IO.Path]::GetFileNameWithoutExtension($jrmathDll.Name)
+  $jrmathLib = Join-Path $JagsRoot ("x64\lib\" + $base + ".lib")
+  $dlls += @(@{dll = $jrmathDll.FullName; lib = $jrmathLib})
+} else {
+  Write-Warning "No jrmath DLL found under $JagsRoot\x64\bin"
+}
+
 foreach ($entry in $dlls) {
-  Ensure-ImportLib -dllPath $entry.dll -implibPath $entry.lib
+  if (Test-Path $entry.dll) {
+    Ensure-ImportLib -dllPath $entry.dll -implibPath $entry.lib
+  } else {
+    Write-Warning "Expected DLL not found: $($entry.dll)"
+  }
 }

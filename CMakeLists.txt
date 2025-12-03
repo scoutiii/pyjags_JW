@@ -178,7 +178,7 @@ if(NOT TARGET PkgConfig::JAGS)
   # Try to locate jrmath alongside jags (needed on Windows).
   set(JRMath_LIBRARY "")
   find_library(JRMath_LIBRARY
-    NAMES jrmath-4 libjrmath-4 jrmath libjrmath
+    NAMES jrmath-4 libjrmath-4 jrmath libjrmath libjrmath-0 jrmath-0
     PATHS ${_lib_roots}
   )
   if(NOT JRMath_LIBRARY)
@@ -229,6 +229,8 @@ if(NOT TARGET PkgConfig::JAGS)
         INTERFACE_INCLUDE_DIRECTORIES "${JAGS_INCLUDE_DIRS}"
       )
       message(STATUS "Using JRmath library: ${JRMath_LIBRARY}")
+    elseif(WIN32)
+      message(FATAL_ERROR "JRmath library not found under ${_jags_root_candidates}; required on Windows")
     endif()
   else()
     message(FATAL_ERROR "Unable to locate JAGS. Set PYJAGS_VENDOR_JAGS_ROOT to a JAGS installation containing include/ and lib/ or bin/.")
