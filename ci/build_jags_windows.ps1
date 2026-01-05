@@ -69,6 +69,55 @@ Write-Host "JAGS inventory (trimmed):"
 Get-ChildItem -Path (Join-Path $JagsRoot "include") -Filter "version.h" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 5 FullName | ForEach-Object { Write-Host "  include: $_" }
 Get-ChildItem -Path $JagsRoot -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.Name -like 'jags*' -or $_.Name -like 'libjags*' -or $_.Name -like 'libjrmath*' } | Select-Object -First 15 FullName | ForEach-Object { Write-Host "  jagspath: $_" }
 
+$binDir = Join-Path $JagsRoot "x64\bin"
+if (!(Test-Path $binDir)) {
+  $binDir = Join-Path $JagsRoot "bin"
+}
+if (!(Test-Path $binDir)) {
+  New-Item -ItemType Directory -Path $binDir -Force | Out-Null
+}
+
+$runtimeDlls = @(
+  "libstdc++-6.dll",
+  "libgcc_s_seh-1.dll",
+  "libgcc_s_dw2-1.dll",
+  "libwinpthread-1.dll"
+)
+
+$gpp = Get-Command "g++.exe" -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Source
+$searchRoots = @()
+if ($gpp) {
+  $searchRoots += (Split-Path -Path $gpp -Parent)
+}
+if ($env:MSYS2_ROOT) {
+  $searchRoots += (Join-Path $env:MSYS2_ROOT "ucrt64\bin")
+  $searchRoots += (Join-Path $env:MSYS2_ROOT "mingw64\bin")
+}
+$searchRoots += @(
+  "C:\msys64\ucrt64\bin",
+  "C:\msys64\mingw64\bin",
+  "$env:RUNNER_TEMP\setup-msys2\msys64\ucrt64\bin",
+  "$env:RUNNER_TEMP\setup-msys2\msys64\mingw64\bin",
+  "C:\mingw64\bin"
+)
+$searchRoots = $searchRoots | Where-Object { $_ -and (Test-Path $_) } | Select-Object -Unique
+
+foreach ($dll in $runtimeDlls) {
+  $found = $false
+  foreach ($root in $searchRoots) {
+    $candidate = Join-Path $root $dll
+    if (Test-Path $candidate) {
+      Copy-Item -Path $candidate -Destination $binDir -Force
+      Write-Host "Copied runtime DLL: $candidate -> $binDir"
+      $found = $true
+      break
+    }
+  }
+  if (-not $found) {
+    Write-Warning "Runtime DLL not found in MSYS2 search roots: $dll"
+  }
+}
+
 $toolchain = $env:PYJAGS_WINDOWS_TOOLCHAIN
 if ($toolchain -eq "mingw") {
   Write-Host "MinGW toolchain requested; skipping MSVC import-lib generation."
