@@ -42,6 +42,28 @@ function Has-JagsLayout([string]$root) {
          (Test-Path (Join-Path $root "include\version.h"))
 }
 
+function Find-Tool($tool) {
+  $candidates = @(
+    "$env:VCToolsInstallDir\bin\Hostx64\x64\$tool.exe",
+    "$env:VSINSTALLDIR\VC\Tools\MSVC\*\bin\Hostx64\x64\$tool.exe"
+  ) + (Get-Command "$tool.exe" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source)
+  foreach ($c in $candidates) {
+    if ($null -ne $c -and (Test-Path $c)) { return $c }
+  }
+  $found = Get-ChildItem "C:\Program Files\Microsoft Visual Studio" -Recurse -Filter "$tool.exe" -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+  return $found
+}
+
+Write-Host "Environment diagnostics:"
+Write-Host "  PATH=$env:PATH"
+Write-Host "  MSYSTEM=$env:MSYSTEM"
+Write-Host "  MSYS2_ROOT=$env:MSYS2_ROOT"
+Write-Host "  RUNNER_TEMP=$env:RUNNER_TEMP"
+Write-Host "  g++: $(Get-Command g++.exe -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source)"
+Write-Host "  gcc: $(Get-Command gcc.exe -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source)"
+Write-Host "  objdump: $(Get-Command objdump.exe -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source)"
+Write-Host "  dumpbin: $(Find-Tool "dumpbin")"
+
 $JagsRoot = $null
 foreach ($c in $candidates) {
   Write-Host "Checking candidate: $c"
@@ -81,7 +103,12 @@ $runtimeDlls = @(
   "libstdc++-6.dll",
   "libgcc_s_seh-1.dll",
   "libgcc_s_dw2-1.dll",
-  "libwinpthread-1.dll"
+  "libwinpthread-1.dll",
+  "libgfortran-5.dll",
+  "libquadmath-0.dll",
+  "libgomp-1.dll",
+  "libssp-0.dll",
+  "libatomic-1.dll"
 )
 
 $gpp = Get-Command "g++.exe" -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Source
@@ -102,6 +129,62 @@ $searchRoots += @(
 )
 $searchRoots = $searchRoots | Where-Object { $_ -and (Test-Path $_) } | Select-Object -Unique
 
+Write-Host "Runtime search roots:"
+foreach ($root in $searchRoots) {
+  Write-Host "  root: $root"
+}
+
+function Get-DllDependencies([string]$dllPath) {
+  $deps = @()
+  $objdump = Get-Command "objdump.exe" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source
+  $dumpbin = Find-Tool "dumpbin"
+  if ($objdump -and (Test-Path $objdump)) {
+    $lines = & $objdump -p $dllPath 2>$null
+    foreach ($line in $lines) {
+      if ($line -match "DLL Name:\s*(\S+\.dll)") {
+        $deps += $matches[1]
+      }
+    }
+  } elseif ($dumpbin -and (Test-Path $dumpbin)) {
+    $lines = & $dumpbin /dependents $dllPath 2>$null
+    foreach ($line in $lines) {
+      if ($line -match "([A-Za-z0-9_.-]+\.dll)") {
+        $deps += $matches[1]
+      }
+    }
+  }
+  $system = @(
+    "KERNEL32.dll","USER32.dll","ADVAPI32.dll","SHELL32.dll","MSVCRT.dll",
+    "VCRUNTIME140.dll","VCRUNTIME140_1.dll","ucrtbase.dll","GDI32.dll",
+    "OLE32.dll","OLEAUT32.dll","WS2_32.dll","CRYPT32.dll","COMDLG32.dll"
+  )
+  $deps = $deps | Where-Object { $_ -and ($system -notcontains $_) } | Select-Object -Unique
+  return $deps
+}
+
+$depTargets = @(
+  (Join-Path $binDir "libjags-4.dll"),
+  (Join-Path $binDir "libjrmath-0.dll")
+)
+$depTargets = $depTargets | Where-Object { $_ -and (Test-Path $_) }
+if ($depTargets) {
+  $depList = @()
+  foreach ($dll in $depTargets) {
+    $deps = Get-DllDependencies $dll
+    if ($deps) {
+      Write-Host "Dependencies for $dll:"
+      foreach ($dep in $deps) { Write-Host "  dep: $dep" }
+      $depList += $deps
+    } else {
+      Write-Host "Dependencies for $dll: (none detected or tool missing)"
+    }
+  }
+  if ($depList) {
+    $runtimeDlls += $depList
+    $runtimeDlls = $runtimeDlls | Select-Object -Unique
+  }
+}
+
 foreach ($dll in $runtimeDlls) {
   $found = $false
   foreach ($root in $searchRoots) {
@@ -118,24 +201,15 @@ foreach ($dll in $runtimeDlls) {
   }
 }
 
+Write-Host "JAGS bin contents (trimmed):"
+Get-ChildItem -Path $binDir -Filter "*.dll" -ErrorAction SilentlyContinue | Select-Object -First 30 FullName | ForEach-Object { Write-Host "  bin-dll: $_" }
+
 $toolchain = $env:PYJAGS_WINDOWS_TOOLCHAIN
 if ($toolchain -eq "mingw") {
   Write-Host "MinGW toolchain requested; skipping MSVC import-lib generation."
   Get-ChildItem -Path (Join-Path $JagsRoot "x64\lib") -Filter "libjags*.dll.a" -ErrorAction SilentlyContinue | Select-Object -First 3 FullName | ForEach-Object { Write-Host "  mingw-lib: $_" }
   Get-ChildItem -Path (Join-Path $JagsRoot "x64\lib") -Filter "libjrmath*.dll.a" -ErrorAction SilentlyContinue | Select-Object -First 3 FullName | ForEach-Object { Write-Host "  mingw-lib: $_" }
 } else {
-  function Find-Tool($tool) {
-    $candidates = @(
-      "$env:VCToolsInstallDir\bin\Hostx64\x64\$tool.exe",
-      "$env:VSINSTALLDIR\VC\Tools\MSVC\*\bin\Hostx64\x64\$tool.exe"
-    ) + (Get-Command "$tool.exe" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source)
-    foreach ($c in $candidates) {
-      if ($null -ne $c -and (Test-Path $c)) { return $c }
-    }
-    $found = Get-ChildItem "C:\Program Files\Microsoft Visual Studio" -Recurse -Filter "$tool.exe" -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
-    return $found
-  }
-
   $dumpbin = Find-Tool "dumpbin"
   $libexe = Find-Tool "lib"
   if (-not $dumpbin -or -not $libexe) {
