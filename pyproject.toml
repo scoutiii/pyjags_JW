@@ -101,3 +101,8 @@ LD_LIBRARY_PATH = "/project/vendor/jags/lib:${LD_LIBRARY_PATH}"
 [tool.cibuildwheel.windows]
 before-all = "powershell -ExecutionPolicy Bypass -File {project}/ci/build_jags_windows.ps1"
 archs = ["AMD64"]
+[tool.cibuildwheel.windows.environment]
+PYJAGS_WINDOWS_TOOLCHAIN = "mingw"
+CMAKE_GENERATOR = "Ninja"
+CC = "gcc"
+CXX = "g++"

@@ -31,6 +31,7 @@ are fully documented in this repository, and are found in the files:
 - `ci/`
 - `pyproject.toml`
 - `.github/workflows/build-wheels.yml`
+- `CMakeLists.txt`
 
 ## Supported Platforms
 - Linux: prebuilt wheels for CPython 3.11–3.13 on x86_64 and aarch64 with JAGS + toolchain runtimes fully bundled. `pip install pyjags-jw` should “just work.”

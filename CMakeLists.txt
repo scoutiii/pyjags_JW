@@ -58,12 +58,25 @@ set(_jags_runtime_lib_candidates "")
 set(_jags_runtime_module_candidates "")
 
 if(PYJAGS_VENDOR_JAGS_ROOT)
-  # Prefer lib first so we don't select a bin directory with no libs.
-  list(APPEND _jags_runtime_lib_candidates "${PYJAGS_VENDOR_JAGS_ROOT}/lib")
-  list(APPEND _jags_runtime_lib_candidates "${PYJAGS_VENDOR_JAGS_ROOT}/x64/lib")
-  list(APPEND _jags_runtime_lib_candidates "${PYJAGS_VENDOR_JAGS_ROOT}/lib/x64")
-  list(APPEND _jags_runtime_lib_candidates "${PYJAGS_VENDOR_JAGS_ROOT}/bin")
-  list(APPEND _jags_runtime_lib_candidates "${PYJAGS_VENDOR_JAGS_ROOT}/x64/bin")
+  if(WIN32)
+    # Prefer bin on Windows because DLLs live there (lib holds import libs).
+    list(APPEND _jags_runtime_lib_candidates
+      "${PYJAGS_VENDOR_JAGS_ROOT}/x64/bin"
+      "${PYJAGS_VENDOR_JAGS_ROOT}/bin"
+      "${PYJAGS_VENDOR_JAGS_ROOT}/x64/lib"
+      "${PYJAGS_VENDOR_JAGS_ROOT}/lib"
+      "${PYJAGS_VENDOR_JAGS_ROOT}/lib/x64"
+    )
+  else()
+    # Prefer lib first so we don't select a bin directory with no libs.
+    list(APPEND _jags_runtime_lib_candidates
+      "${PYJAGS_VENDOR_JAGS_ROOT}/lib"
+      "${PYJAGS_VENDOR_JAGS_ROOT}/x64/lib"
+      "${PYJAGS_VENDOR_JAGS_ROOT}/lib/x64"
+      "${PYJAGS_VENDOR_JAGS_ROOT}/bin"
+      "${PYJAGS_VENDOR_JAGS_ROOT}/x64/bin"
+    )
+  endif()
   if(JAGS_VERSION_MAJOR)
     list(APPEND _jags_runtime_module_candidates "${PYJAGS_VENDOR_JAGS_ROOT}/lib/JAGS/modules-${JAGS_VERSION_MAJOR}")
   endif()
@@ -86,8 +99,23 @@ endif()
 
 # Fallback: derive from explicit vendor root when pkg-config is absent (notably on Windows)
 if(NOT PkgConfig_FOUND AND PYJAGS_VENDOR_JAGS_ROOT)
-  list(APPEND _jags_runtime_lib_candidates "${PYJAGS_VENDOR_JAGS_ROOT}/lib" "${PYJAGS_VENDOR_JAGS_ROOT}/x64/lib" "${PYJAGS_VENDOR_JAGS_ROOT}/lib/x64")
-  list(APPEND _jags_runtime_lib_candidates "${PYJAGS_VENDOR_JAGS_ROOT}/bin" "${PYJAGS_VENDOR_JAGS_ROOT}/x64/bin")
+  if(WIN32)
+    list(APPEND _jags_runtime_lib_candidates
+      "${PYJAGS_VENDOR_JAGS_ROOT}/x64/bin"
+      "${PYJAGS_VENDOR_JAGS_ROOT}/bin"
+      "${PYJAGS_VENDOR_JAGS_ROOT}/x64/lib"
+      "${PYJAGS_VENDOR_JAGS_ROOT}/lib"
+      "${PYJAGS_VENDOR_JAGS_ROOT}/lib/x64"
+    )
+  else()
+    list(APPEND _jags_runtime_lib_candidates
+      "${PYJAGS_VENDOR_JAGS_ROOT}/lib"
+      "${PYJAGS_VENDOR_JAGS_ROOT}/x64/lib"
+      "${PYJAGS_VENDOR_JAGS_ROOT}/lib/x64"
+      "${PYJAGS_VENDOR_JAGS_ROOT}/bin"
+      "${PYJAGS_VENDOR_JAGS_ROOT}/x64/bin"
+    )
+  endif()
   if(JAGS_VERSION_MAJOR)
     list(APPEND _jags_runtime_module_candidates "${PYJAGS_VENDOR_JAGS_ROOT}/lib/JAGS/modules-${JAGS_VERSION_MAJOR}")
     list(APPEND _jags_runtime_module_candidates "${PYJAGS_VENDOR_JAGS_ROOT}/modules/JAGS/modules-${JAGS_VERSION_MAJOR}")
@@ -160,6 +188,20 @@ if(NOT TARGET PkgConfig::JAGS)
     endif()
   endif()
 
+  if(MINGW)
+    set(_jags_dlla "")
+    foreach(_cand IN LISTS _lib_roots)
+      file(GLOB _found_dlla "${_cand}/libjags*.dll.a")
+      if(_found_dlla)
+        list(GET _found_dlla 0 _jags_dlla)
+        break()
+      endif()
+    endforeach()
+    if(_jags_dlla)
+      set(JAGS_LIBRARY "${_jags_dlla}")
+    endif()
+  endif()
+
   # If we only found a DLL, prefer an import library with the same stem if present.
   if(JAGS_LIBRARY AND JAGS_LIBRARY MATCHES "\\.dll$")
     get_filename_component(_jags_name "${JAGS_LIBRARY}" NAME_WE)
@@ -195,6 +237,20 @@ if(NOT TARGET PkgConfig::JAGS)
     list(REMOVE_DUPLICATES _jrmath_fallback)
     if(_jrmath_fallback)
       list(GET _jrmath_fallback 0 JRMath_LIBRARY)
+    endif()
+  endif()
+
+  if(MINGW)
+    set(_jrmath_dlla "")
+    foreach(_cand IN LISTS _lib_roots)
+      file(GLOB _found_jrmath_dlla "${_cand}/libjrmath*.dll.a")
+      if(_found_jrmath_dlla)
+        list(GET _found_jrmath_dlla 0 _jrmath_dlla)
+        break()
+      endif()
+    endforeach()
+    if(_jrmath_dlla)
+      set(JRMath_LIBRARY "${_jrmath_dlla}")
     endif()
   endif()
 
@@ -323,6 +379,10 @@ if(PYJAGS_VENDOR_JAGS AND JAGS_RUNTIME_LIBDIR)
       "${JAGS_RUNTIME_LIBDIR}/jrmath*.dll"
       "${JAGS_RUNTIME_LIBDIR}/libjags*.dll"
       "${JAGS_RUNTIME_LIBDIR}/libjrmath*.dll"
+      "${JAGS_RUNTIME_LIBDIR}/libstdc++-6.dll"
+      "${JAGS_RUNTIME_LIBDIR}/libgcc_s_seh-1.dll"
+      "${JAGS_RUNTIME_LIBDIR}/libgcc_s_dw2-1.dll"
+      "${JAGS_RUNTIME_LIBDIR}/libwinpthread-1.dll"
     )
   elseif(APPLE)
     set(_jags_lib_patterns

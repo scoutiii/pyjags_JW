@@ -69,56 +69,63 @@ Write-Host "JAGS inventory (trimmed):"
 Get-ChildItem -Path (Join-Path $JagsRoot "include") -Filter "version.h" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 5 FullName | ForEach-Object { Write-Host "  include: $_" }
 Get-ChildItem -Path $JagsRoot -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.Name -like 'jags*' -or $_.Name -like 'libjags*' -or $_.Name -like 'libjrmath*' } | Select-Object -First 15 FullName | ForEach-Object { Write-Host "  jagspath: $_" }
 
-function Find-Tool($tool) {
-  $candidates = @(
-    "$env:VCToolsInstallDir\bin\Hostx64\x64\$tool.exe",
-    "$env:VSINSTALLDIR\VC\Tools\MSVC\*\bin\Hostx64\x64\$tool.exe"
-  ) + (Get-Command "$tool.exe" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source)
-  foreach ($c in $candidates) {
-    if ($null -ne $c -and (Test-Path $c)) { return $c }
-  }
-  $found = Get-ChildItem "C:\Program Files\Microsoft Visual Studio" -Recurse -Filter "$tool.exe" -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
-  return $found
-}
-
-$dumpbin = Find-Tool "dumpbin"
-$libexe = Find-Tool "lib"
-if (-not $dumpbin -or -not $libexe) {
-  throw "Required MSVC tools dumpbin/lib not found to generate import libraries"
-}
-
-function Ensure-ImportLib($dllPath, $implibPath) {
-  if (-not (Test-Path $dllPath)) { return }
-  Write-Host "Generating MSVC import library $implibPath from $dllPath"
-  $tempDef = Join-Path $env:TEMP ("jags_exports_" + [IO.Path]::GetFileNameWithoutExtension($dllPath) + ".def")
-
-  & $dumpbin /exports $dllPath | Where-Object { $_ -match "^[ ]+[0-9]+" } |
-    ForEach-Object {
-      if ($_ -match "^[ ]+[0-9]+\s+[0-9A-F]+\s+[0-9A-F]+\s+(\S+)$") { $matches[1] }
-    } | Where-Object { $_ } | Set-Content -Path $tempDef -Encoding ASCII
-  $lines = Get-Content $tempDef
-  @("EXPORTS") + $lines | Set-Content -Path $tempDef -Encoding ASCII
-
-  & $libexe /def:$tempDef /machine:x64 /out:$implibPath
-}
-
-$dlls = @(
-  @{dll = Join-Path $JagsRoot "x64\bin\libjags-4.dll"; lib = Join-Path $JagsRoot "x64\lib\libjags-4.lib"}
-)
-
-$jrmathDll = Get-ChildItem -Path (Join-Path $JagsRoot "x64\bin") -Filter "libjrmath-*.dll" -ErrorAction SilentlyContinue | Select-Object -First 1
-if ($jrmathDll) {
-  $base = [IO.Path]::GetFileNameWithoutExtension($jrmathDll.Name)
-  $jrmathLib = Join-Path $JagsRoot ("x64\lib\" + $base + ".lib")
-  $dlls += @(@{dll = $jrmathDll.FullName; lib = $jrmathLib})
+$toolchain = $env:PYJAGS_WINDOWS_TOOLCHAIN
+if ($toolchain -eq "mingw") {
+  Write-Host "MinGW toolchain requested; skipping MSVC import-lib generation."
+  Get-ChildItem -Path (Join-Path $JagsRoot "x64\lib") -Filter "libjags*.dll.a" -ErrorAction SilentlyContinue | Select-Object -First 3 FullName | ForEach-Object { Write-Host "  mingw-lib: $_" }
+  Get-ChildItem -Path (Join-Path $JagsRoot "x64\lib") -Filter "libjrmath*.dll.a" -ErrorAction SilentlyContinue | Select-Object -First 3 FullName | ForEach-Object { Write-Host "  mingw-lib: $_" }
 } else {
-  Write-Warning "No jrmath DLL found under $JagsRoot\x64\bin"
-}
+  function Find-Tool($tool) {
+    $candidates = @(
+      "$env:VCToolsInstallDir\bin\Hostx64\x64\$tool.exe",
+      "$env:VSINSTALLDIR\VC\Tools\MSVC\*\bin\Hostx64\x64\$tool.exe"
+    ) + (Get-Command "$tool.exe" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source)
+    foreach ($c in $candidates) {
+      if ($null -ne $c -and (Test-Path $c)) { return $c }
+    }
+    $found = Get-ChildItem "C:\Program Files\Microsoft Visual Studio" -Recurse -Filter "$tool.exe" -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+    return $found
+  }
 
-foreach ($entry in $dlls) {
-  if (Test-Path $entry.dll) {
-    Ensure-ImportLib -dllPath $entry.dll -implibPath $entry.lib
+  $dumpbin = Find-Tool "dumpbin"
+  $libexe = Find-Tool "lib"
+  if (-not $dumpbin -or -not $libexe) {
+    throw "Required MSVC tools dumpbin/lib not found to generate import libraries"
+  }
+
+  function Ensure-ImportLib($dllPath, $implibPath) {
+    if (-not (Test-Path $dllPath)) { return }
+    Write-Host "Generating MSVC import library $implibPath from $dllPath"
+    $tempDef = Join-Path $env:TEMP ("jags_exports_" + [IO.Path]::GetFileNameWithoutExtension($dllPath) + ".def")
+
+    & $dumpbin /exports $dllPath | Where-Object { $_ -match "^[ ]+[0-9]+" } |
+      ForEach-Object {
+        if ($_ -match "^[ ]+[0-9]+\s+[0-9A-F]+\s+[0-9A-F]+\s+(\S+)$") { $matches[1] }
+      } | Where-Object { $_ } | Set-Content -Path $tempDef -Encoding ASCII
+    $lines = Get-Content $tempDef
+    @("EXPORTS") + $lines | Set-Content -Path $tempDef -Encoding ASCII
+
+    & $libexe /def:$tempDef /machine:x64 /out:$implibPath
+  }
+
+  $dlls = @(
+    @{dll = Join-Path $JagsRoot "x64\bin\libjags-4.dll"; lib = Join-Path $JagsRoot "x64\lib\libjags-4.lib"}
+  )
+
+  $jrmathDll = Get-ChildItem -Path (Join-Path $JagsRoot "x64\bin") -Filter "libjrmath-*.dll" -ErrorAction SilentlyContinue | Select-Object -First 1
+  if ($jrmathDll) {
+    $base = [IO.Path]::GetFileNameWithoutExtension($jrmathDll.Name)
+    $jrmathLib = Join-Path $JagsRoot ("x64\lib\" + $base + ".lib")
+    $dlls += @(@{dll = $jrmathDll.FullName; lib = $jrmathLib})
   } else {
-    Write-Warning "Expected DLL not found: $($entry.dll)"
+    Write-Warning "No jrmath DLL found under $JagsRoot\x64\bin"
+  }
+
+  foreach ($entry in $dlls) {
+    if (Test-Path $entry.dll) {
+      Ensure-ImportLib -dllPath $entry.dll -implibPath $entry.lib
+    } else {
+      Write-Warning "Expected DLL not found: $($entry.dll)"
+    }
   }
 }
