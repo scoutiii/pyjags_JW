@@ -75,14 +75,14 @@ testpaths = ["test"]
 
 
 [tool.cibuildwheel]
-build = ["cp311-manylinux_*", "cp312-manylinux_*", "cp313-manylinux_*"]
+build = ["cp311-*", "cp312-*", "cp313-*"]
 skip = ["*-musllinux_*"]                    # adjust once Alpine support is ready
 test-requires = ["pytest"]
 test-command = "bash {project}/ci/run_tests.sh {project} {tmpdir}"
 
 [tool.cibuildwheel.linux]
 before-all = "bash {project}/ci/build_jags.sh"
-archs = ["x86_64"]
+archs = ["x86_64", "aarch64"]
 
 [tool.cibuildwheel.macos]
 before-all = "bash {project}/ci/build_jags_macos.sh"

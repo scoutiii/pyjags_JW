@@ -57,7 +57,7 @@ No system JAGS needed on supported Linux and MacOS wheels.
 * JAGS was created by Martyn Plummer
 * PyJAGS was originally created by Tomasz Miasko
 * As of May 2020, PyJAGS is developed by Michael Nowotny
-* This package is a fork and update of Michael Nowotny's PyJAGS package developed by Scout Jarman with the help of ChatGPT
+* This package is a fork and update of Michael Nowotny's PyJAGS package, developed by Scout Jarman with the help of ChatGPT
 
 ## License and GPLv2 Compliance
 
