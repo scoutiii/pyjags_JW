@@ -36,9 +36,10 @@ twine check wheelhouse/*
 
 ## 5. Upload to TestPyPI (dry run)
 ```bash
-export TWINE_USERNAME="__token__"
-export TWINE_PASSWORD="pypi-<your-testpypi-token>"
-twine upload --repository testpypi wheelhouse/*
+## If .pypirc isn't configured
+# export TWINE_USERNAME="__token__"
+#export TWINE_PASSWORD="pypi-<your-testpypi-token>"
+twine upload -r testpypi wheelhouse/*
 ```
 
 ## 6. Verify from a clean env
@@ -46,6 +47,7 @@ twine upload --repository testpypi wheelhouse/*
 python -m venv /tmp/pjtest && source /tmp/pjtest/bin/activate
 python -m pip install --upgrade pip
 pip install --index-url https://test.pypi.org/simple --extra-index-url https://pypi.org/simple pyjags-jw
+cd
 python - <<'PY'
 import pyjags, pathlib, os, subprocess
 so = next(pathlib.Path(pyjags.__file__).parent.glob("console*.so"))
@@ -59,8 +61,9 @@ deactivate
 
 ## 7. Upload to PyPI (production)
 ```bash
-export TWINE_USERNAME="__token__"
-export TWINE_PASSWORD="pypi-<your-prod-token>"
+# export TWINE_USERNAME="__token__"
+# export TWINE_PASSWORD="pypi-<your-prod-token>"
+cd code/pyjags_JW
 twine upload wheelhouse/all/*
 ```
 
