@@ -172,11 +172,11 @@ if ($depTargets) {
   foreach ($dll in $depTargets) {
     $deps = Get-DllDependencies $dll
     if ($deps) {
-      Write-Host "Dependencies for $dll:"
+      Write-Host ("Dependencies for {0}:" -f $dll)
       foreach ($dep in $deps) { Write-Host "  dep: $dep" }
       $depList += $deps
     } else {
-      Write-Host "Dependencies for $dll: (none detected or tool missing)"
+      Write-Host ("Dependencies for {0}: (none detected or tool missing)" -f $dll)
     }
   }
   if ($depList) {
