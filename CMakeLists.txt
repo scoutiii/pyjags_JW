@@ -408,6 +408,27 @@ if(PYJAGS_VENDOR_JAGS AND JAGS_RUNTIME_LIBDIR)
   endif()
   install(FILES ${JAGS_RUNTIME_LIBS} DESTINATION "${_vendor_lib_dest}")
 
+  if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    set(_mingw_runtime_libs "")
+    foreach(_lib IN ITEMS libstdc++-6.dll libgcc_s_seh-1.dll libgcc_s_dw2-1.dll libwinpthread-1.dll)
+      execute_process(
+        COMMAND ${CMAKE_CXX_COMPILER} "-print-file-name=${_lib}"
+        OUTPUT_VARIABLE _lib_path
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+      )
+      if(_lib_path AND EXISTS "${_lib_path}" AND NOT IS_DIRECTORY "${_lib_path}")
+        list(APPEND _mingw_runtime_libs "${_lib_path}")
+      endif()
+    endforeach()
+    if(_mingw_runtime_libs)
+      list(REMOVE_DUPLICATES _mingw_runtime_libs)
+      install(FILES ${_mingw_runtime_libs} DESTINATION "${_vendor_lib_dest}")
+    else()
+      message(WARNING "MinGW runtime DLLs not found; Windows wheel may fail to import without MSYS2/UCRT runtime in PATH.")
+    endif()
+  endif()
+
   if(NOT WIN32 AND NOT APPLE)
     set(_toolchain_vendor_libs "")
 
