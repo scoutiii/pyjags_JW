@@ -2,9 +2,10 @@ name: Build wheels
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, dev ]
     tags: [ 'v*' ]
   pull_request:
+    branches: [ main, master, dev]
 
 jobs:
   linux:
