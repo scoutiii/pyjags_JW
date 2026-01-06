@@ -83,16 +83,6 @@ if(PYJAGS_VENDOR_JAGS_ROOT)
         "${PYJAGS_VENDOR_JAGS_ROOT}/x64/lib/JAGS/modules-${JAGS_VERSION_MAJOR}"
         "${PYJAGS_VENDOR_JAGS_ROOT}/lib/JAGS/modules-${JAGS_VERSION_MAJOR}"
         "${PYJAGS_VENDOR_JAGS_ROOT}/lib/x64/JAGS/modules-${JAGS_VERSION_MAJOR}"
-        "${PYJAGS_VENDOR_JAGS_ROOT}/x64/lib/modules-${JAGS_VERSION_MAJOR}"
-        "${PYJAGS_VENDOR_JAGS_ROOT}/lib/modules-${JAGS_VERSION_MAJOR}"
-        "${PYJAGS_VENDOR_JAGS_ROOT}/lib/x64/modules-${JAGS_VERSION_MAJOR}"
-        "${PYJAGS_VENDOR_JAGS_ROOT}/x64/modules-${JAGS_VERSION_MAJOR}"
-        "${PYJAGS_VENDOR_JAGS_ROOT}/modules-${JAGS_VERSION_MAJOR}"
-        "${PYJAGS_VENDOR_JAGS_ROOT}/x64/lib/modules"
-        "${PYJAGS_VENDOR_JAGS_ROOT}/lib/modules"
-        "${PYJAGS_VENDOR_JAGS_ROOT}/lib/x64/modules"
-        "${PYJAGS_VENDOR_JAGS_ROOT}/x64/modules"
-        "${PYJAGS_VENDOR_JAGS_ROOT}/modules"
       )
     else()
       list(APPEND _jags_runtime_module_candidates "${PYJAGS_VENDOR_JAGS_ROOT}/lib/JAGS/modules-${JAGS_VERSION_MAJOR}")
@@ -112,16 +102,6 @@ if(JAGS_PREFIX)
         "${JAGS_PREFIX}/x64/lib/JAGS/modules-${JAGS_VERSION_MAJOR}"
         "${JAGS_PREFIX}/lib/JAGS/modules-${JAGS_VERSION_MAJOR}"
         "${JAGS_PREFIX}/lib/x64/JAGS/modules-${JAGS_VERSION_MAJOR}"
-        "${JAGS_PREFIX}/x64/lib/modules-${JAGS_VERSION_MAJOR}"
-        "${JAGS_PREFIX}/lib/modules-${JAGS_VERSION_MAJOR}"
-        "${JAGS_PREFIX}/lib/x64/modules-${JAGS_VERSION_MAJOR}"
-        "${JAGS_PREFIX}/x64/modules-${JAGS_VERSION_MAJOR}"
-        "${JAGS_PREFIX}/modules-${JAGS_VERSION_MAJOR}"
-        "${JAGS_PREFIX}/x64/lib/modules"
-        "${JAGS_PREFIX}/lib/modules"
-        "${JAGS_PREFIX}/lib/x64/modules"
-        "${JAGS_PREFIX}/x64/modules"
-        "${JAGS_PREFIX}/modules"
       )
     else()
       list(APPEND _jags_runtime_module_candidates "${JAGS_PREFIX}/lib/JAGS/modules-${JAGS_VERSION_MAJOR}")
@@ -159,16 +139,6 @@ if(NOT PkgConfig_FOUND AND PYJAGS_VENDOR_JAGS_ROOT)
         "${PYJAGS_VENDOR_JAGS_ROOT}/lib/JAGS/modules-${JAGS_VERSION_MAJOR}"
         "${PYJAGS_VENDOR_JAGS_ROOT}/lib/x64/JAGS/modules-${JAGS_VERSION_MAJOR}"
         "${PYJAGS_VENDOR_JAGS_ROOT}/modules/JAGS/modules-${JAGS_VERSION_MAJOR}"
-        "${PYJAGS_VENDOR_JAGS_ROOT}/x64/lib/modules-${JAGS_VERSION_MAJOR}"
-        "${PYJAGS_VENDOR_JAGS_ROOT}/lib/modules-${JAGS_VERSION_MAJOR}"
-        "${PYJAGS_VENDOR_JAGS_ROOT}/lib/x64/modules-${JAGS_VERSION_MAJOR}"
-        "${PYJAGS_VENDOR_JAGS_ROOT}/x64/modules-${JAGS_VERSION_MAJOR}"
-        "${PYJAGS_VENDOR_JAGS_ROOT}/modules-${JAGS_VERSION_MAJOR}"
-        "${PYJAGS_VENDOR_JAGS_ROOT}/x64/lib/modules"
-        "${PYJAGS_VENDOR_JAGS_ROOT}/lib/modules"
-        "${PYJAGS_VENDOR_JAGS_ROOT}/lib/x64/modules"
-        "${PYJAGS_VENDOR_JAGS_ROOT}/x64/modules"
-        "${PYJAGS_VENDOR_JAGS_ROOT}/modules"
       )
     else()
       list(APPEND _jags_runtime_module_candidates "${PYJAGS_VENDOR_JAGS_ROOT}/lib/JAGS/modules-${JAGS_VERSION_MAJOR}")
@@ -324,12 +294,14 @@ if(NOT TARGET PkgConfig::JAGS)
   endif()
 
   if(JAGS_LIBRARY AND JAGS_INCLUDE_DIRS)
+    if(NOT JAGS_LIBDIR)
+      get_filename_component(JAGS_LIBDIR "${JAGS_LIBRARY}" DIRECTORY)
+    endif()
     add_library(PkgConfig::JAGS UNKNOWN IMPORTED)
     set_target_properties(PkgConfig::JAGS PROPERTIES
       IMPORTED_LOCATION "${JAGS_LIBRARY}"
       INTERFACE_INCLUDE_DIRECTORIES "${JAGS_INCLUDE_DIRS}"
     )
-    get_filename_component(JAGS_LIBDIR "${JAGS_LIBRARY}" DIRECTORY)
     message(STATUS "Using JAGS include: ${JAGS_INCLUDE_DIRS}")
     message(STATUS "Using JAGS library: ${JAGS_LIBRARY}")
     # Ensure runtime search candidates include the resolved lib/bin paths.

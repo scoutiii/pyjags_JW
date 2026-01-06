@@ -1,7 +1,9 @@
 $ErrorActionPreference = 'Stop'
 
 $JagsVersion = '4.3.1'
+$JagsMajor = $JagsVersion.Split('.')[0]
 $Prefix = 'C:\jags'
+$ExpectedRoot = Join-Path $Prefix "JAGS-$JagsVersion"
 $Installer = Join-Path $env:TEMP "JAGS-$JagsVersion.exe"
 $PrimaryUrl = "https://sourceforge.net/projects/mcmc-jags/files/JAGS/4.x/Windows/JAGS-$JagsVersion.exe/download"
 $MirrorUrl = "https://cfhcable.dl.sourceforge.net/project/mcmc-jags/JAGS/4.x/Windows/JAGS-$JagsVersion.exe"
@@ -26,11 +28,12 @@ if (!(Test-Path $Installer) -or ((Get-Item $Installer).Length -lt 1000000)) {
   throw "Failed to download JAGS installer from $PrimaryUrl or mirror"
 }
 
-Write-Host "Installing to $Prefix ..."
-Start-Process -FilePath $Installer -ArgumentList "/S","/D=$Prefix" -Wait -PassThru | Out-Null
-Write-Host "JAGS installed under $Prefix"
+Write-Host "Installing to $ExpectedRoot ..."
+Start-Process -FilePath $Installer -ArgumentList "/S","/D=$ExpectedRoot" -Wait -PassThru | Out-Null
+Write-Host "JAGS installer completed."
 
 $candidates = @(
+  "$ExpectedRoot",
   "$Prefix",
   (Join-Path $Prefix "JAGS-$JagsVersion"),
   (Join-Path $Prefix "JAGS\$JagsVersion"),
@@ -83,7 +86,65 @@ if (-not $JagsRoot) {
   throw "Installed JAGS layout not found under $Prefix"
 }
 
+Write-Host "Expected JAGS root: $ExpectedRoot"
 Write-Host "Detected JAGS root: $JagsRoot"
+
+function Invoke-Robocopy([string]$Source, [string]$Destination, [string[]]$Options) {
+  $robocopy = (Get-Command "robocopy.exe" -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Source)
+  if (-not $robocopy) {
+    throw "robocopy.exe not found; cannot move JAGS installation."
+  }
+  $args = @($Source, $Destination) + $Options + @("/NFL","/NDL","/NJH","/NJS","/NP")
+  & $robocopy @args | Out-Null
+  if ($LASTEXITCODE -ge 8) {
+    throw "robocopy failed moving $Source to $Destination (exit code $LASTEXITCODE)"
+  }
+}
+
+if ($JagsRoot -ne $ExpectedRoot) {
+  Write-Host "Relocating JAGS from $JagsRoot to $ExpectedRoot"
+  if (Test-Path $ExpectedRoot) {
+    Remove-Item -Path $ExpectedRoot -Recurse -Force
+  }
+  Invoke-Robocopy -Source $JagsRoot -Destination $ExpectedRoot -Options @("/E","/MOVE")
+  $JagsRoot = $ExpectedRoot
+}
+
+$ExpectedModulesDir = Join-Path $JagsRoot "x64\lib\JAGS\modules-$JagsMajor"
+Write-Host "Expected modules dir: $ExpectedModulesDir"
+
+$ActualModulesDir = $null
+$basemod = Get-ChildItem -Path $JagsRoot -Filter "basemod.dll" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($basemod) {
+  $ActualModulesDir = Split-Path -Path $basemod.FullName -Parent
+} else {
+  $modulesHit = Get-ChildItem -Path $JagsRoot -Directory -Filter ("modules-" + $JagsMajor) -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+  if ($modulesHit) {
+    $ActualModulesDir = $modulesHit.FullName
+  }
+}
+
+Write-Host "Detected modules dir: $ActualModulesDir"
+if (-not $ActualModulesDir) {
+  throw "JAGS modules directory not found under $JagsRoot"
+}
+
+if ($ActualModulesDir -ne $ExpectedModulesDir) {
+  Write-Host "Syncing JAGS modules to expected location."
+  New-Item -ItemType Directory -Path $ExpectedModulesDir -Force | Out-Null
+  Invoke-Robocopy -Source $ActualModulesDir -Destination $ExpectedModulesDir -Options @("/E")
+}
+
+if (-not (Test-Path (Join-Path $ExpectedModulesDir "basemod.dll"))) {
+  throw "Expected modules directory does not contain basemod.dll: $ExpectedModulesDir"
+}
+
+Write-Host "Final JAGS layout:"
+Write-Host "  root: $JagsRoot"
+Write-Host "  bin: $(Join-Path $JagsRoot 'x64\bin')"
+Write-Host "  lib: $(Join-Path $JagsRoot 'x64\lib')"
+Write-Host "  modules: $ExpectedModulesDir"
+
 $env:PYJAGS_VENDOR_JAGS_ROOT = $JagsRoot
 Add-Content -Path $env:GITHUB_ENV -Value "PYJAGS_VENDOR_JAGS_ROOT=$JagsRoot"
 
