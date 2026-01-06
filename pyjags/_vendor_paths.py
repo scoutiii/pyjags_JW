@@ -8,7 +8,7 @@ from pathlib import Path
 _DLL_DIR_HANDLES = []
 _DLL_DIR_PATHS = set()
 
-_DLL_DEP_RE = re.compile(r"[A-Za-z0-9_.-]+\.dll", re.IGNORECASE)
+_DLL_DEP_RE = re.compile(r"[A-Za-z0-9_.+\-]+\.dll", re.IGNORECASE)
 
 
 def _vendor_candidates(root):
@@ -132,7 +132,7 @@ def _loaded_modules():
     TH32CS_SNAPMODULE = 0x00000008
     TH32CS_SNAPMODULE32 = 0x00000010
 
-    class MODULEENTRY32(wt.Structure):
+    class MODULEENTRY32(ctypes.Structure):
         _fields_ = [
             ("dwSize", wt.DWORD),
             ("th32ModuleID", wt.DWORD),
