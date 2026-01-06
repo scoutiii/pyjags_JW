@@ -78,7 +78,15 @@ if(PYJAGS_VENDOR_JAGS_ROOT)
     )
   endif()
   if(JAGS_VERSION_MAJOR)
-    list(APPEND _jags_runtime_module_candidates "${PYJAGS_VENDOR_JAGS_ROOT}/lib/JAGS/modules-${JAGS_VERSION_MAJOR}")
+    if(WIN32)
+      list(APPEND _jags_runtime_module_candidates
+        "${PYJAGS_VENDOR_JAGS_ROOT}/x64/lib/JAGS/modules-${JAGS_VERSION_MAJOR}"
+        "${PYJAGS_VENDOR_JAGS_ROOT}/lib/JAGS/modules-${JAGS_VERSION_MAJOR}"
+        "${PYJAGS_VENDOR_JAGS_ROOT}/lib/x64/JAGS/modules-${JAGS_VERSION_MAJOR}"
+      )
+    else()
+      list(APPEND _jags_runtime_module_candidates "${PYJAGS_VENDOR_JAGS_ROOT}/lib/JAGS/modules-${JAGS_VERSION_MAJOR}")
+    endif()
   endif()
 endif()
 
@@ -89,7 +97,15 @@ endif()
 if(JAGS_PREFIX)
   list(APPEND _jags_runtime_lib_candidates "${JAGS_PREFIX}/lib")
   if(JAGS_VERSION_MAJOR)
-    list(APPEND _jags_runtime_module_candidates "${JAGS_PREFIX}/lib/JAGS/modules-${JAGS_VERSION_MAJOR}")
+    if(WIN32)
+      list(APPEND _jags_runtime_module_candidates
+        "${JAGS_PREFIX}/x64/lib/JAGS/modules-${JAGS_VERSION_MAJOR}"
+        "${JAGS_PREFIX}/lib/JAGS/modules-${JAGS_VERSION_MAJOR}"
+        "${JAGS_PREFIX}/lib/x64/JAGS/modules-${JAGS_VERSION_MAJOR}"
+      )
+    else()
+      list(APPEND _jags_runtime_module_candidates "${JAGS_PREFIX}/lib/JAGS/modules-${JAGS_VERSION_MAJOR}")
+    endif()
   endif()
 endif()
 
@@ -117,8 +133,17 @@ if(NOT PkgConfig_FOUND AND PYJAGS_VENDOR_JAGS_ROOT)
     )
   endif()
   if(JAGS_VERSION_MAJOR)
-    list(APPEND _jags_runtime_module_candidates "${PYJAGS_VENDOR_JAGS_ROOT}/lib/JAGS/modules-${JAGS_VERSION_MAJOR}")
-    list(APPEND _jags_runtime_module_candidates "${PYJAGS_VENDOR_JAGS_ROOT}/modules/JAGS/modules-${JAGS_VERSION_MAJOR}")
+    if(WIN32)
+      list(APPEND _jags_runtime_module_candidates
+        "${PYJAGS_VENDOR_JAGS_ROOT}/x64/lib/JAGS/modules-${JAGS_VERSION_MAJOR}"
+        "${PYJAGS_VENDOR_JAGS_ROOT}/lib/JAGS/modules-${JAGS_VERSION_MAJOR}"
+        "${PYJAGS_VENDOR_JAGS_ROOT}/lib/x64/JAGS/modules-${JAGS_VERSION_MAJOR}"
+        "${PYJAGS_VENDOR_JAGS_ROOT}/modules/JAGS/modules-${JAGS_VERSION_MAJOR}"
+      )
+    else()
+      list(APPEND _jags_runtime_module_candidates "${PYJAGS_VENDOR_JAGS_ROOT}/lib/JAGS/modules-${JAGS_VERSION_MAJOR}")
+      list(APPEND _jags_runtime_module_candidates "${PYJAGS_VENDOR_JAGS_ROOT}/modules/JAGS/modules-${JAGS_VERSION_MAJOR}")
+    endif()
   endif()
 endif()
 
@@ -379,10 +404,17 @@ if(PYJAGS_VENDOR_JAGS AND JAGS_RUNTIME_LIBDIR)
       "${JAGS_RUNTIME_LIBDIR}/jrmath*.dll"
       "${JAGS_RUNTIME_LIBDIR}/libjags*.dll"
       "${JAGS_RUNTIME_LIBDIR}/libjrmath*.dll"
+      "${JAGS_RUNTIME_LIBDIR}/libblas*.dll"
+      "${JAGS_RUNTIME_LIBDIR}/liblapack*.dll"
       "${JAGS_RUNTIME_LIBDIR}/libstdc++-6.dll"
       "${JAGS_RUNTIME_LIBDIR}/libgcc_s_seh-1.dll"
       "${JAGS_RUNTIME_LIBDIR}/libgcc_s_dw2-1.dll"
       "${JAGS_RUNTIME_LIBDIR}/libwinpthread-1.dll"
+      "${JAGS_RUNTIME_LIBDIR}/libgfortran*.dll"
+      "${JAGS_RUNTIME_LIBDIR}/libquadmath*.dll"
+      "${JAGS_RUNTIME_LIBDIR}/libgomp*.dll"
+      "${JAGS_RUNTIME_LIBDIR}/libssp*.dll"
+      "${JAGS_RUNTIME_LIBDIR}/libatomic*.dll"
     )
   elseif(APPLE)
     set(_jags_lib_patterns
