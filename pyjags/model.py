@@ -18,11 +18,15 @@ import numpy as np
 import sys
 import tempfile
 
-from ._vendor_paths import prefill_vendor_lib_dir
+from ._vendor_paths import diagnose_windows_dll_load, prefill_vendor_lib_dir
 
 prefill_vendor_lib_dir()
 
-from .console import Console, DUMP_ALL, DUMP_DATA, DUMP_PARAMETERS
+try:
+    from .console import Console, DUMP_ALL, DUMP_DATA, DUMP_PARAMETERS
+except ImportError as exc:
+    diagnose_windows_dll_load("importing console", exc)
+    raise
 from .modules import load_module
 from .progressbar import const_time_partition, progress_bar_factory
 
