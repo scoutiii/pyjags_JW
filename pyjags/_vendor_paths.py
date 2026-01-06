@@ -1,6 +1,9 @@
 import os
 from pathlib import Path
 
+_DLL_DIR_HANDLES = []
+_DLL_DIR_PATHS = set()
+
 
 def ensure_windows_dll_search_path(path):
     if os.name != "nt":
@@ -11,7 +14,12 @@ def ensure_windows_dll_search_path(path):
     if not os.path.isdir(path):
         return
     if hasattr(os, "add_dll_directory"):
-        os.add_dll_directory(path)
+        norm_path = os.path.normcase(os.path.abspath(path))
+        if norm_path in _DLL_DIR_PATHS:
+            return
+        handle = os.add_dll_directory(path)
+        _DLL_DIR_HANDLES.append(handle)
+        _DLL_DIR_PATHS.add(norm_path)
     else:
         current = os.environ.get("PATH", "")
         parts = current.split(os.pathsep) if current else []
